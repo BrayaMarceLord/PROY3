@@ -1,0 +1,40 @@
+net "clk" Loc="E3" | IOSTANDARD = "LVCMOS33";
+
+net "reset" loc="P17"| IOSTANDARD = "LVCMOS33";
+net "ini" loc="M17"| IOSTANDARD = "LVCMOS33";
+net "bt<0>" loc="J15"| IOSTANDARD = "LVCMOS33";
+net "bt<1>" loc="L16"| IOSTANDARD = "LVCMOS33";
+net "bt<2>" loc="M13"| IOSTANDARD = "LVCMOS33";
+net "bt<3>" loc="R15"| IOSTANDARD = "LVCMOS33";
+net "bt<4>" loc="R17"| IOSTANDARD = "LVCMOS33";
+net "bt<5>" loc="T18"| IOSTANDARD = "LVCMOS33";
+net "bt<6>" loc="U18"| IOSTANDARD = "LVCMOS33";
+net "bt<7>" loc="R13"| IOSTANDARD = "LVCMOS33";
+
+net "hsync" loc="B11"| IOSTANDARD = "LVCMOS33";
+
+net "vsync" loc="B12"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<0>" loc="B7"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<1>" loc="C7"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<2>" loc="D7"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<3>" loc="D8"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<4>" loc="C6"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<5>" loc="A5"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<6>" loc="B6"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<7>" loc="A6"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<8>" loc="A3"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<9>" loc="B4"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<10>" loc="C5"| IOSTANDARD = "LVCMOS33";
+
+net "rgb<11>" loc="A4"| IOSTANDARD = "LVCMOS33";

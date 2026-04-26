@@ -1,0 +1,432 @@
+library IEEE;
+
+use IEEE.STD_LOGIC_1164.ALL;
+
+use IEEE.NUMERIC_STD.ALL;
+
+
+
+entity ASM is
+
+    Port (
+
+        clk   : in  STD_LOGIC;
+
+        ini   : in  STD_LOGIC;
+
+        reset : in  STD_LOGIC;
+
+        we    : out STD_LOGIC_VECTOR (0 downto 0);
+
+        dbo   : in  STD_LOGIC_VECTOR (0 downto 0);
+
+        dbi   : out STD_LOGIC_VECTOR (0 downto 0);
+
+        ab    : out STD_LOGIC_VECTOR (11 downto 0);
+
+        bt    : in  STD_LOGIC_VECTOR (7 downto 0)
+
+    );
+
+end ASM;
+
+
+
+architecture Behavioral of ASM is
+
+
+
+-- Tipos convertidos a unsigned
+
+signal px, py : unsigned(5 downto 0);
+
+signal ind    : unsigned(5 downto 0);
+
+signal nhb    : unsigned(2 downto 0);
+
+signal dir    : unsigned(11 downto 0);
+
+
+
+signal timer  : integer range 0 to 20000000 := 0;
+
+
+
+type state is (
+
+    s0,s1,s2,s3,s4,s5,s6,s7,
+
+    sa,sc,sd,se,sf,
+
+    s8,s9,s10,
+
+    si0,si1,si2,si3
+
+);
+
+
+
+signal st     : state;
+
+signal active : std_logic;
+
+
+
+begin
+
+
+
+process(clk, reset)
+
+begin
+
+    if reset = '1' then
+
+        st     <= s0;
+
+        px     <= (others => '0');
+
+        py     <= (others => '0');
+
+        ind    <= (others => '1');
+
+        nhb    <= (others => '0');
+
+        dir    <= (others => '0');
+
+        timer  <= 0;
+
+        we     <= "0";
+
+        dbi    <= "0";
+
+        ab     <= (others => '0');
+
+        active <= '0';
+
+
+
+    elsif rising_edge(clk) then
+
+
+
+        -- Valores por defecto (evita latches)
+
+        we  <= "0";
+
+        dbi <= "0";
+
+
+
+        case st is
+
+
+
+        -- ================= INIT =================
+
+        when s0 =>
+
+            px     <= (others => '0');
+
+            py     <= (others => '0');
+
+            ind    <= (others => '1');
+
+            nhb    <= (others => '0');
+
+            dir    <= (others => '0');
+
+            active <= '0';
+
+            ab     <= (others => '0');
+
+            st     <= si0;
+
+
+
+        -- ================= BORRADO MEMORIA =================
+
+        when si0 =>
+
+            ab  <= std_logic_vector(dir);
+
+            dbi <= "0";
+
+            we  <= "1";
+
+
+
+            if dir = to_unsigned(4095,12) then
+
+                st <= si2;
+
+            else
+
+                st <= si1;
+
+            end if;
+
+
+
+        when si1 =>
+
+            dir <= dir + 1;
+
+            st  <= si0;
+
+
+
+        when si2 =>
+
+            ab  <= "000000100000"; -- posición inicial
+
+            dbi <= "1";
+
+            we  <= "1";
+
+            st  <= si3;
+
+
+
+        when si3 =>
+
+            st <= sa;
+
+
+
+        -- ================= CONTROL INICIO =================
+
+        when sa =>
+
+            if active = '0' then
+
+                st <= sc;
+
+            else
+
+                st <= s1;
+
+            end if;
+
+
+
+        when sc =>
+
+            if ini = '0' then
+
+                st <= sd;
+
+            else
+
+                st <= se;
+
+            end if;
+
+
+
+        when sd =>
+
+            if timer = 1000000 then
+
+                timer <= 0;
+
+                st <= sc;
+
+            else
+
+                timer <= timer + 1;
+
+            end if;
+
+
+
+        when se =>
+
+            if ini = '1' then
+
+                st <= sf;
+
+            else
+
+                active <= '1';
+
+                st <= sa;
+
+            end if;
+
+
+
+        when sf =>
+
+            if timer = 1000000 then
+
+                timer <= 0;
+
+                st <= se;
+
+            else
+
+                timer <= timer + 1;
+
+            end if;
+
+
+
+        -- ================= AUTOMATA =================
+
+        when s1 =>
+
+            ab <= std_logic_vector(py & (px + ind));
+
+            st <= s2;
+
+
+
+        when s2 =>
+
+            st <= s3;
+
+
+
+        when s3 =>
+
+            nhb <= nhb(1 downto 0) & unsigned(dbo);
+
+
+
+            if ind = to_unsigned(1,6) then
+
+                ind <= (others => '1');
+
+                st <= s4;
+
+            else
+
+                ind <= ind + 1;
+
+                st <= s1;
+
+            end if;
+
+
+
+        when s4 =>
+
+            dbi(0) <= bt(to_integer(nhb));
+
+            ab <= std_logic_vector((py + 1) & px);
+
+            nhb <= (others => '0');
+
+            we <= "1";
+
+            st <= s5;
+
+
+
+        when s5 =>
+
+            if px = to_unsigned(63,6) then
+
+                px <= (others => '0');
+
+                st <= s6;
+
+            else
+
+                px <= px + 1;
+
+                st <= s1;
+
+            end if;
+
+
+
+        when s6 =>
+
+            py <= py + 1;
+
+            st <= s7;
+
+
+
+        when s7 =>
+
+            if timer = 20000000 then
+
+                timer <= 0;
+
+                st <= s8;
+
+            else
+
+                timer <= timer + 1;
+
+            end if;
+
+
+
+        -- ================= PAUSA =================
+
+        when s8 =>
+
+            if ini = '0' then
+
+                st <= sa;
+
+            else
+
+                st <= s9;
+
+            end if;
+
+
+
+        when s9 =>
+
+            if ini = '1' then
+
+                st <= s10;
+
+            else
+
+                active <= '0';
+
+                st <= sa;
+
+            end if;
+
+
+
+        when s10 =>
+
+            if timer = 1000000 then
+
+                timer <= 0;
+
+                st <= s9;
+
+            else
+
+                timer <= timer + 1;
+
+            end if;
+
+
+
+        when others =>
+
+            st <= s0;
+
+
+
+        end case;
+
+    end if;
+
+end process;
+
+
+
+end Behavioral;
+

@@ -1,0 +1,106 @@
+library IEEE;
+
+use IEEE.STD_LOGIC_1164.ALL;
+
+
+
+entity MAE is
+
+    Port ( 
+
+        clk   : in  STD_LOGIC;
+
+        ini   : in  STD_LOGIC;
+
+        reset : in  STD_LOGIC;
+
+        dir   : in  STD_LOGIC_VECTOR (11 downto 0);
+
+        data  : out STD_LOGIC_VECTOR (0 downto 0);
+
+        bt    : in  STD_LOGIC_VECTOR (7 downto 0)
+
+    );
+
+end MAE;
+
+
+
+architecture Behavioral of MAE is
+
+
+
+signal we  : std_logic_vector(0 downto 0);
+
+signal ab  : std_logic_vector(11 downto 0);
+
+signal dbi : std_logic_vector(0 downto 0);
+
+signal dbo : std_logic_vector(0 downto 0);
+
+
+
+begin
+
+
+
+-- MEMORIA (dual port correcta)
+
+c1: entity work.memi
+
+port map (
+
+    clka  => clk,
+
+    rsta  => reset,
+
+    wea   => we,
+
+    addra => ab,
+
+    dina  => dbi,
+
+    douta => dbo,
+
+    clkb  => clk,
+
+    web   => "0",
+
+    addrb => dir,
+
+    dinb  => "0",
+
+    doutb => data
+
+);
+
+
+
+-- ASM
+
+c2: entity work.ASM
+
+port map (
+
+    clk   => clk,
+
+    ini   => ini,
+
+    reset => reset,
+
+    we    => we,
+
+    dbo   => dbo,
+
+    dbi   => dbi,
+
+    ab    => ab,
+
+    bt    => bt
+
+);
+
+
+
+end Behavioral;
+

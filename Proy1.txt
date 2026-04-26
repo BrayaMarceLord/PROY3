@@ -1,0 +1,153 @@
+library IEEE;
+
+use IEEE.STD_LOGIC_1164.ALL;
+
+use IEEE.NUMERIC_STD.ALL;
+
+
+
+entity proy1 is
+
+    Port ( 
+
+        clk   : in  STD_LOGIC;
+
+        ini   : in  STD_LOGIC;
+
+        reset : in  STD_LOGIC;
+
+        bt    : in  STD_LOGIC_VECTOR (7 downto 0);
+
+        hsync : out STD_LOGIC;
+
+        vsync : out STD_LOGIC;
+
+        rgb   : out STD_LOGIC_VECTOR (11 downto 0)
+
+    );
+
+end proy1;
+
+
+
+architecture Behavioral of proy1 is
+
+
+
+-- 🔷 SEÑALES (SOLO DECLARACIONES)
+
+signal hcounti : std_logic_vector (10 downto 0);
+
+signal vcounti : std_logic_vector (9 downto 0);
+
+signal diri    : std_logic_vector (11 downto 0);
+
+signal datai   : std_logic_vector (0 downto 0);
+
+
+
+signal div     : unsigned(1 downto 0) := (others => '0');
+
+signal clk_25  : std_logic := '0';
+
+
+
+begin
+
+
+
+-- 🔷 PROCESO (YA EN BEGIN)
+
+process(clk, reset)
+
+begin
+
+    if reset = '1' then
+
+        div    <= (others => '0');
+
+        clk_25 <= '0';
+
+    elsif rising_edge(clk) then
+
+        div <= div + 1;
+
+
+
+        if div = "11" then
+
+            clk_25 <= not clk_25;
+
+        end if;
+
+    end if;
+
+end process;
+
+
+
+-- 🔷 VGA
+
+c1: entity work.vgac
+
+port map (
+
+    clk    => clk_25,
+
+    reset  => reset,
+
+    dir    => diri,
+
+    hcount => hcounti,
+
+    vcount => vcounti,
+
+    hsync  => hsync,
+
+    vsync  => vsync
+
+);
+
+
+
+-- 🔷 RGB
+
+c2: entity work.GU
+
+port map (
+
+    data   => datai,
+
+    hcount => hcounti,
+
+    vcount => vcounti,
+
+    rgb    => rgb
+
+);
+
+
+
+-- 🔷 MAE
+
+c3: entity work.MAE
+
+port map (
+
+    clk   => clk,
+
+    ini   => ini,
+
+    reset => reset,
+
+    dir   => diri,
+
+    data  => datai,
+
+    bt    => bt
+
+);
+
+
+
+end Behavioral;
