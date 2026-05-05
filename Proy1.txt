@@ -8,7 +8,7 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity proy1 is
 
-    Port ( 
+    Port (
 
         clk   : in  STD_LOGIC;
 
@@ -16,13 +16,13 @@ entity proy1 is
 
         reset : in  STD_LOGIC;
 
-        bt    : in  STD_LOGIC_VECTOR (7 downto 0);
+        bt    : in  STD_LOGIC_VECTOR(7 downto 0);
 
         hsync : out STD_LOGIC;
 
         vsync : out STD_LOGIC;
 
-        rgb   : out STD_LOGIC_VECTOR (11 downto 0)
+        rgb   : out STD_LOGIC_VECTOR(11 downto 0)
 
     );
 
@@ -34,21 +34,23 @@ architecture Behavioral of proy1 is
 
 
 
--- 🔷 SEÑALES (SOLO DECLARACIONES)
+signal hcounti   : std_logic_vector(10 downto 0);
 
-signal hcounti : std_logic_vector (10 downto 0);
+signal vcounti   : std_logic_vector(9 downto 0);
 
-signal vcounti : std_logic_vector (9 downto 0);
+signal dir_val_i : std_logic_vector(11 downto 0);
 
-signal diri    : std_logic_vector (11 downto 0);
+signal dir_av_i  : std_logic_vector(11 downto 0);
 
-signal datai   : std_logic_vector (0 downto 0);
+signal data_val_i: std_logic_vector(2 downto 0);
+
+signal data_av_i : std_logic_vector(0 downto 0);
 
 
 
-signal div     : unsigned(1 downto 0) := (others => '0');
+signal clk_50    : std_logic := '0';
 
-signal clk_25  : std_logic := '0';
+signal clk_25    : std_logic := '0';
 
 
 
@@ -56,7 +58,11 @@ begin
 
 
 
--- 🔷 PROCESO (YA EN BEGIN)
+-- =====================================================
+
+-- DIVISOR DE RELOJ 100MHz → 25MHz
+
+-- =====================================================
 
 process(clk, reset)
 
@@ -64,17 +70,15 @@ begin
 
     if reset = '1' then
 
-        div    <= (others => '0');
+        clk_50 <= '0';
 
         clk_25 <= '0';
 
     elsif rising_edge(clk) then
 
-        div <= div + 1;
+        clk_50 <= not clk_50;
 
-
-
-        if div = "11" then
+        if clk_50 = '1' then
 
             clk_25 <= not clk_25;
 
@@ -86,7 +90,11 @@ end process;
 
 
 
--- 🔷 VGA
+-- =====================================================
+
+-- VGA
+
+-- =====================================================
 
 c1: entity work.vgac
 
@@ -96,58 +104,83 @@ port map (
 
     reset  => reset,
 
-    dir    => diri,
+    hsync  => hsync,
+
+    vsync  => vsync,
+
+    dir    => open,
 
     hcount => hcounti,
 
-    vcount => vcounti,
-
-    hsync  => hsync,
-
-    vsync  => vsync
+    vcount => vcounti
 
 );
 
 
 
--- 🔷 RGB
+-- =====================================================
+
+-- UNIDAD DE GRAFICOS
+
+-- =====================================================
 
 c2: entity work.GU
 
 port map (
 
-    data   => datai,
+    clk      => clk_25,
 
-    hcount => hcounti,
+    data_val => data_val_i,
 
-    vcount => vcounti,
+    data_av  => data_av_i,
 
-    rgb    => rgb
+    hcount   => hcounti,
+
+    vcount   => vcounti,
+
+    rgb      => rgb,
+
+    dir_val  => dir_val_i,
+
+    dir_av   => dir_av_i
 
 );
 
 
 
--- 🔷 MAE
+-- =====================================================
+
+-- MAE: bt(0)=cinit, bt(1)=op, bt(2)=gran
+
+-- =====================================================
 
 c3: entity work.MAE
 
 port map (
 
-    clk   => clk,
+    clk      => clk,
 
-    ini   => ini,
+    clk_25   => clk_25,
 
-    reset => reset,
+    ini      => ini,
 
-    dir   => diri,
+    reset    => reset,
 
-    data  => datai,
+    dir_val  => dir_val_i,
 
-    bt    => bt
+    data_val => data_val_i,
+
+    dir_av   => dir_av_i,
+
+    data_av  => data_av_i,
+
+    bt       => bt(2 downto 0)
 
 );
 
 
 
 end Behavioral;
+
+
+

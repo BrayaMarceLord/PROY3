@@ -1,89 +1,274 @@
 library IEEE;
 
-use IEEE.STD_LOGIC_1164.all;
+use IEEE.STD_LOGIC_1164.ALL;
 
 
 
 package proyecto1pack is
 
 
+
+-- =====================================================
+
+-- ASM
+
+-- =====================================================
+
 component ASM is
-    Port ( clk : in  STD_LOGIC;
-           ini : in  STD_LOGIC;
-           reset : in  STD_LOGIC;
-			  we : out STD_LOGIC_vector(0 downto 0);
-           dbo : in  STD_LOGIC_VECTOR (0 downto 0);
-           dbi : out  STD_LOGIC_VECTOR (0 downto 0);
-           ab : out  STD_LOGIC_VECTOR (11 downto 0);
-			   bt : in STD_LOGIC_VECTOR ( 7 DOWNTO 0));
+
+    Port (
+
+        clk     : in  STD_LOGIC;
+
+        ini     : in  STD_LOGIC;
+
+        reset   : in  STD_LOGIC;
+
+        we_val  : out STD_LOGIC_VECTOR(0 downto 0);
+
+        ab_val  : out STD_LOGIC_VECTOR(11 downto 0);
+
+        dbi_val : out STD_LOGIC_VECTOR(1 downto 0);
+
+        dbo_val : in  STD_LOGIC_VECTOR(1 downto 0);
+
+        we_av   : out STD_LOGIC_VECTOR(0 downto 0);
+
+        ab_av   : out STD_LOGIC_VECTOR(11 downto 0);
+
+        dbi_av  : out STD_LOGIC_VECTOR(0 downto 0);
+
+        cinit   : in  STD_LOGIC;
+
+        op      : in  STD_LOGIC;
+
+        gran    : in  STD_LOGIC;
+
+        rx      : in  STD_LOGIC_VECTOR(5 downto 0);
+
+        ry      : in  STD_LOGIC_VECTOR(5 downto 0);
+
+        rval    : in  STD_LOGIC_VECTOR(1 downto 0);
+
+        en      : out STD_LOGIC
+
+    );
+
 end component;
 
 
 
-component memi IS
-  PORT (
-    clka : IN STD_LOGIC;
-    rsta : IN STD_LOGIC;
-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    dina : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    douta : OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
-    clkb : IN STD_LOGIC;
-    web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    dinb : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    doutb : OUT STD_LOGIC_VECTOR(0 DOWNTO 0)
-  );
-END component;
+-- =====================================================
+
+-- PRNG
+
+-- =====================================================
+
+component PRNG is
+
+    Port (
+
+        clk   : in  STD_LOGIC;
+
+        reset : in  STD_LOGIC;
+
+        en    : in  STD_LOGIC;
+
+        rx    : out STD_LOGIC_VECTOR(5 downto 0);
+
+        ry    : out STD_LOGIC_VECTOR(5 downto 0);
+
+        rval  : out STD_LOGIC_VECTOR(1 downto 0)
+
+    );
+
+end component;
 
 
 
-  component MAE is
+-- =====================================================
 
-    Port ( clk,ini,reset : in  STD_LOGIC;
+-- MEMI_VAL (True Dual Port, 2 bits, 4096 posiciones)
 
-           dir : in  STD_LOGIC_VECTOR (11 downto 0);
+-- =====================================================
 
-           data : out  STD_LOGIC_VECTOR (0 downto 0);
-			  bt : in std_logic_vector ( 7 downto 0));
+component memi_val is
 
-	end component;
+    Port (
 
-	
+        clka  : in  STD_LOGIC;
 
-	component GU is
+        wea   : in  STD_LOGIC_VECTOR(0 downto 0);
 
-    Port ( data : in  STD_LOGIC_VECTOR (0 downto 0);
+        addra : in  STD_LOGIC_VECTOR(11 downto 0);
 
-           hcount : in  STD_LOGIC_VECTOR (10 downto 0);
+        dina  : in  STD_LOGIC_VECTOR(1 downto 0);
 
-           vcount : in  STD_LOGIC_VECTOR (9 downto 0);
+        douta : out STD_LOGIC_VECTOR(1 downto 0);
 
-           rgb : out  STD_LOGIC_VECTOR (11 downto 0));
+        clkb  : in  STD_LOGIC;
 
-   end component;
+        web   : in  STD_LOGIC_VECTOR(0 downto 0);
 
-	
+        addrb : in  STD_LOGIC_VECTOR(11 downto 0);
 
-	component vgac is
+        dinb  : in  STD_LOGIC_VECTOR(1 downto 0);
 
-    Port ( clk : in  STD_LOGIC;
+        doutb : out STD_LOGIC_VECTOR(1 downto 0)
 
-           reset : in  STD_LOGIC;
+    );
 
-           hsync : out  STD_LOGIC;
+end component;
 
-           vsync : out  STD_LOGIC;
 
-           dir : out  STD_LOGIC_VECTOR (11 downto 0);
 
-           hcount : out  STD_LOGIC_VECTOR (10 downto 0);
+-- =====================================================
 
-           vcount : out  STD_LOGIC_VECTOR (9 downto 0));
+-- MEMI_AV (True Dual Port, 1 bit, 4096 posiciones)
 
-  end component;
+-- =====================================================
 
-	
+component memi_av is
+
+    Port (
+
+        clka  : in  STD_LOGIC;
+
+        wea   : in  STD_LOGIC_VECTOR(0 downto 0);
+
+        addra : in  STD_LOGIC_VECTOR(11 downto 0);
+
+        dina  : in  STD_LOGIC_VECTOR(0 downto 0);
+
+        douta : out STD_LOGIC_VECTOR(0 downto 0);
+
+        clkb  : in  STD_LOGIC;
+
+        web   : in  STD_LOGIC_VECTOR(0 downto 0);
+
+        addrb : in  STD_LOGIC_VECTOR(11 downto 0);
+
+        dinb  : in  STD_LOGIC_VECTOR(0 downto 0);
+
+        doutb : out STD_LOGIC_VECTOR(0 downto 0)
+
+    );
+
+end component;
+
+
+
+-- =====================================================
+
+-- MAE
+
+-- =====================================================
+
+component MAE is
+
+    Port (
+
+        clk      : in  STD_LOGIC;
+
+        clk_25   : in  STD_LOGIC;
+
+        ini      : in  STD_LOGIC;
+
+        reset    : in  STD_LOGIC;
+
+        dir_val  : in  STD_LOGIC_VECTOR(11 downto 0);
+
+        data_val : out STD_LOGIC_VECTOR(2 downto 0);
+
+        dir_av   : in  STD_LOGIC_VECTOR(11 downto 0);
+
+        data_av  : out STD_LOGIC_VECTOR(0 downto 0);
+
+        bt       : in  STD_LOGIC_VECTOR(2 downto 0)
+
+    );
+
+end component;
+
+
+
+-- =====================================================
+
+-- GU
+
+-- =====================================================
+
+component GU is
+
+    Port (
+
+        clk      : in  STD_LOGIC;
+
+        data_val : in  STD_LOGIC_VECTOR(2 downto 0);
+
+        data_av  : in  STD_LOGIC_VECTOR(0 downto 0);
+
+        hcount   : in  STD_LOGIC_VECTOR(10 downto 0);
+
+        vcount   : in  STD_LOGIC_VECTOR(9 downto 0);
+
+        rgb      : out STD_LOGIC_VECTOR(11 downto 0);
+
+        dir_val  : out STD_LOGIC_VECTOR(11 downto 0);
+
+        dir_av   : out STD_LOGIC_VECTOR(11 downto 0)
+
+    );
+
+end component;
+
+
+
+-- =====================================================
+
+-- VGAC
+
+-- =====================================================
+
+component vgac is
+
+    Port (
+
+        clk    : in  STD_LOGIC;
+
+        reset  : in  STD_LOGIC;
+
+        hsync  : out STD_LOGIC;
+
+        vsync  : out STD_LOGIC;
+
+        dir    : out STD_LOGIC_VECTOR(11 downto 0);
+
+        hcount : out STD_LOGIC_VECTOR(10 downto 0);
+
+        vcount : out STD_LOGIC_VECTOR(9 downto 0)
+
+    );
+
+end component;
+
+
 
 end proyecto1pack;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
