@@ -16,7 +16,7 @@ entity proy1 is
 
         reset : in  STD_LOGIC;
 
-        bt    : in  STD_LOGIC_VECTOR(7 downto 0);
+        bt    : in  STD_LOGIC_VECTOR(2 downto 0);
 
         hsync : out STD_LOGIC;
 
