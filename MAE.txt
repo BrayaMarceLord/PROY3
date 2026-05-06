@@ -16,21 +16,15 @@ entity MAE is
 
         reset  : in  STD_LOGIC;
 
-        -- VGA Tablero 1 (valores 3 bits)
-
         dir_val  : in  STD_LOGIC_VECTOR(11 downto 0);
 
         data_val : out STD_LOGIC_VECTOR(2 downto 0);
-
-        -- VGA Tablero 2 (avalanchas 1 bit)
 
         dir_av   : in  STD_LOGIC_VECTOR(11 downto 0);
 
         data_av  : out STD_LOGIC_VECTOR(0 downto 0);
 
-        -- switches: bt(0)=cinit, bt(1)=op, bt(2)=gran
-
-        bt     : in  STD_LOGIC_VECTOR(2 downto 0)
+        bt       : in  STD_LOGIC_VECTOR(2 downto 0)
 
     );
 
@@ -42,8 +36,6 @@ architecture Behavioral of MAE is
 
 
 
--- bus memoria valores (3 bits)
-
 signal we_val  : std_logic_vector(0 downto 0);
 
 signal ab_val  : std_logic_vector(11 downto 0);
@@ -54,8 +46,6 @@ signal dbo_val : std_logic_vector(2 downto 0);
 
 
 
--- bus memoria avalanchas (1 bit)
-
 signal we_av   : std_logic_vector(0 downto 0);
 
 signal ab_av   : std_logic_vector(11 downto 0);
@@ -64,15 +54,13 @@ signal dbi_av  : std_logic_vector(0 downto 0);
 
 
 
--- PRNG
+signal rx      : std_logic_vector(5 downto 0);
 
-signal rx   : std_logic_vector(5 downto 0);
+signal ry      : std_logic_vector(5 downto 0);
 
-signal ry   : std_logic_vector(5 downto 0);
+signal rval    : std_logic_vector(1 downto 0);
 
-signal rval : std_logic_vector(1 downto 0);
-
-signal en   : std_logic;
+signal en      : std_logic;
 
 
 
@@ -80,15 +68,61 @@ begin
 
 
 
--- =====================================================
+-- ASM (El Cerebro)
 
--- MEMORIA VALORES (memi_val) 3 bits
+c0: entity work.ASM
 
--- Puerto A: ASM  (clk 100MHz)
+port map (
 
--- Puerto B: VGA  (clk_25 25MHz)
+    clk     => clk,
 
--- =====================================================
+    ini     => ini,
+
+    reset   => reset,
+
+    
+
+    we_val  => we_val,
+
+    ab_val  => ab_val,
+
+    dbi_val => dbi_val,
+
+    dbo_val => dbo_val,
+
+    
+
+    we_av   => we_av,
+
+    ab_av   => ab_av,
+
+    dbi_av  => dbi_av,
+
+    
+
+    -- PUENTE DE LOS SWITCHES FÍSICOS
+
+    cinit   => bt(0),
+
+    op      => bt(1),  -- Conectado de forma segura
+
+    gran    => bt(2),
+
+    
+
+    rx      => rx,
+
+    ry      => ry,
+
+    rval    => rval,
+
+    en      => en
+
+);
+
+
+
+-- MEMORIA VALORES (3 bits)
 
 c1: entity work.memi_val
 
@@ -118,15 +152,7 @@ port map (
 
 
 
--- =====================================================
-
--- MEMORIA AVALANCHAS (memi_av) 1 bit
-
--- Puerto A: ASM  (clk 100MHz)
-
--- Puerto B: VGA  (clk_25 25MHz)
-
--- =====================================================
+-- MEMORIA AVALANCHAS (1 bit)
 
 c2: entity work.memi_av
 
@@ -156,11 +182,7 @@ port map (
 
 
 
--- =====================================================
-
 -- PRNG
-
--- =====================================================
 
 c3: entity work.PRNG
 
@@ -177,54 +199,6 @@ port map (
     ry    => ry,
 
     rval  => rval
-
-);
-
-
-
--- =====================================================
-
--- ASM
-
--- =====================================================
-
-c4: entity work.ASM
-
-port map (
-
-    clk     => clk,
-
-    ini     => ini,
-
-    reset   => reset,
-
-    we_val  => we_val,
-
-    ab_val  => ab_val,
-
-    dbi_val => dbi_val,
-
-    dbo_val => dbo_val,
-
-    we_av   => we_av,
-
-    ab_av   => ab_av,
-
-    dbi_av  => dbi_av,
-
-    cinit   => bt(0),
-
-    op      => bt(1),
-
-    gran    => bt(2),
-
-    rx      => rx,
-
-    ry      => ry,
-
-    rval    => rval,
-
-    en      => en
 
 );
 

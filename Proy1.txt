@@ -16,7 +16,9 @@ entity proy1 is
 
         reset : in  STD_LOGIC;
 
-        bt    : in  STD_LOGIC_VECTOR(7 downto 0);
+        -- ¡CORRECCIÓN! Reducido a 3 bits para coincidir con tu placa
+
+        bt    : in  STD_LOGIC_VECTOR(2 downto 0);
 
         hsync : out STD_LOGIC;
 
@@ -58,11 +60,7 @@ begin
 
 
 
--- =====================================================
-
--- DIVISOR DE RELOJ 100MHz → 25MHz
-
--- =====================================================
+-- DIVISOR DE RELOJ
 
 process(clk, reset)
 
@@ -90,11 +88,35 @@ end process;
 
 
 
--- =====================================================
+-- MAE (Máquina y Memorias)
 
--- VGA
+c0: entity work.MAE
 
--- =====================================================
+port map (
+
+    clk      => clk,
+
+    clk_25   => clk_25,
+
+    ini      => ini,
+
+    reset    => reset,
+
+    dir_val  => dir_val_i,
+
+    data_val => data_val_i,
+
+    dir_av   => dir_av_i,
+
+    data_av  => data_av_i,
+
+    bt       => bt -- Aquí se transfiere el switch a los módulos internos
+
+);
+
+
+
+-- CONTROLADOR VGA
 
 c1: entity work.vgac
 
@@ -118,11 +140,7 @@ port map (
 
 
 
--- =====================================================
-
--- UNIDAD DE GRAFICOS
-
--- =====================================================
+-- UNIDAD DE GRÁFICOS
 
 c2: entity work.GU
 
@@ -148,39 +166,5 @@ port map (
 
 
 
--- =====================================================
-
--- MAE: bt(0)=cinit, bt(1)=op, bt(2)=gran
-
--- =====================================================
-
-c3: entity work.MAE
-
-port map (
-
-    clk      => clk,
-
-    clk_25   => clk_25,
-
-    ini      => ini,
-
-    reset    => reset,
-
-    dir_val  => dir_val_i,
-
-    data_val => data_val_i,
-
-    dir_av   => dir_av_i,
-
-    data_av  => data_av_i,
-
-    bt       => bt(2 downto 0)
-
-);
-
-
-
 end Behavioral;
-
-
 

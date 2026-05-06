@@ -12,8 +12,6 @@ entity PRNG is
 
         reset : in  STD_LOGIC;
 
-       -- seed  : in  STD_LOGIC_VECTOR(5 downto 0);
-
         en    : in  STD_LOGIC;
 
         rx    : out STD_LOGIC_VECTOR(5 downto 0);
@@ -32,7 +30,9 @@ architecture Behavioral of PRNG is
 
 
 
-signal lfsr : STD_LOGIC_VECTOR(13 downto 0);
+-- ¡CORRECCIÓN CRÍTICA! Se fuerza la semilla para que no inicie en ceros
+
+signal lfsr : STD_LOGIC_VECTOR(13 downto 0) := "11001010110101";
 
 signal feedback : STD_LOGIC;
 
@@ -52,11 +52,7 @@ begin
 
     if reset = '1' then
 
-        -- semilla nunca debe ser todo ceros
-
-        lfsr <= "11001010110101";
-
-
+        lfsr <= "11001010110101"; -- Reinicia con una semilla válida
 
     elsif rising_edge(clk) then
 
@@ -76,8 +72,9 @@ rx   <= lfsr(5 downto 0);
 
 ry   <= lfsr(11 downto 6);
 
-rval <= lfsr(13 downto 12);
+rval <= lfsr(1 downto 0);
 
 
 
 end Behavioral;
+

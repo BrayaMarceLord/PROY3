@@ -8,11 +8,7 @@ package proyecto1pack is
 
 
 
--- =====================================================
-
 -- ASM
-
--- =====================================================
 
 component ASM is
 
@@ -28,9 +24,11 @@ component ASM is
 
         ab_val  : out STD_LOGIC_VECTOR(11 downto 0);
 
-        dbi_val : out STD_LOGIC_VECTOR(1 downto 0);
+        -- ¡CORRECCIÓN! Ajustado a 3 bits
 
-        dbo_val : in  STD_LOGIC_VECTOR(1 downto 0);
+        dbi_val : out STD_LOGIC_VECTOR(2 downto 0);
+
+        dbo_val : in  STD_LOGIC_VECTOR(2 downto 0);
 
         we_av   : out STD_LOGIC_VECTOR(0 downto 0);
 
@@ -58,111 +56,7 @@ end component;
 
 
 
--- =====================================================
-
--- PRNG
-
--- =====================================================
-
-component PRNG is
-
-    Port (
-
-        clk   : in  STD_LOGIC;
-
-        reset : in  STD_LOGIC;
-
-        en    : in  STD_LOGIC;
-
-        rx    : out STD_LOGIC_VECTOR(5 downto 0);
-
-        ry    : out STD_LOGIC_VECTOR(5 downto 0);
-
-        rval  : out STD_LOGIC_VECTOR(1 downto 0)
-
-    );
-
-end component;
-
-
-
--- =====================================================
-
--- MEMI_VAL (True Dual Port, 2 bits, 4096 posiciones)
-
--- =====================================================
-
-component memi_val is
-
-    Port (
-
-        clka  : in  STD_LOGIC;
-
-        wea   : in  STD_LOGIC_VECTOR(0 downto 0);
-
-        addra : in  STD_LOGIC_VECTOR(11 downto 0);
-
-        dina  : in  STD_LOGIC_VECTOR(1 downto 0);
-
-        douta : out STD_LOGIC_VECTOR(1 downto 0);
-
-        clkb  : in  STD_LOGIC;
-
-        web   : in  STD_LOGIC_VECTOR(0 downto 0);
-
-        addrb : in  STD_LOGIC_VECTOR(11 downto 0);
-
-        dinb  : in  STD_LOGIC_VECTOR(1 downto 0);
-
-        doutb : out STD_LOGIC_VECTOR(1 downto 0)
-
-    );
-
-end component;
-
-
-
--- =====================================================
-
--- MEMI_AV (True Dual Port, 1 bit, 4096 posiciones)
-
--- =====================================================
-
-component memi_av is
-
-    Port (
-
-        clka  : in  STD_LOGIC;
-
-        wea   : in  STD_LOGIC_VECTOR(0 downto 0);
-
-        addra : in  STD_LOGIC_VECTOR(11 downto 0);
-
-        dina  : in  STD_LOGIC_VECTOR(0 downto 0);
-
-        douta : out STD_LOGIC_VECTOR(0 downto 0);
-
-        clkb  : in  STD_LOGIC;
-
-        web   : in  STD_LOGIC_VECTOR(0 downto 0);
-
-        addrb : in  STD_LOGIC_VECTOR(11 downto 0);
-
-        dinb  : in  STD_LOGIC_VECTOR(0 downto 0);
-
-        doutb : out STD_LOGIC_VECTOR(0 downto 0)
-
-    );
-
-end component;
-
-
-
--- =====================================================
-
 -- MAE
-
--- =====================================================
 
 component MAE is
 
@@ -192,11 +86,7 @@ end component;
 
 
 
--- =====================================================
-
 -- GU
-
--- =====================================================
 
 component GU is
 
@@ -224,15 +114,11 @@ end component;
 
 
 
--- =====================================================
-
 -- VGAC
-
--- =====================================================
 
 component vgac is
 
-    Port (
+    Port ( 
 
         clk    : in  STD_LOGIC;
 
@@ -242,11 +128,11 @@ component vgac is
 
         vsync  : out STD_LOGIC;
 
-        dir    : out STD_LOGIC_VECTOR(11 downto 0);
+        dir    : out STD_LOGIC_VECTOR (11 downto 0);
 
-        hcount : out STD_LOGIC_VECTOR(10 downto 0);
+        hcount : out STD_LOGIC_VECTOR (10 downto 0);
 
-        vcount : out STD_LOGIC_VECTOR(9 downto 0)
+        vcount : out STD_LOGIC_VECTOR (9 downto 0)
 
     );
 
@@ -255,20 +141,3 @@ end component;
 
 
 end proyecto1pack;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

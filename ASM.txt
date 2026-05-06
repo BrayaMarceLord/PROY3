@@ -84,7 +84,9 @@ signal active      : std_logic := '0';
 
 
 
-signal cap_val     : unsigned(2 downto 0) := (others=>'0');
+-- NUEVA SEÑAL para guardar el valor exacto de la celda que colapsa
+
+signal val_actual  : unsigned(2 downto 0) := (others=>'0');
 
 signal granos      : unsigned(2 downto 0) := (others=>'0');
 
@@ -100,67 +102,33 @@ signal hubo_colapso : std_logic := '0';
 
 type state is (
 
-
-
     -- INIT
 
-    s_init,
-
-    s_init_val_wr,
-
-    s_init_av_wr,
-
-    s_init_next,
+    s_init, s_init_val_wr, s_init_av_wr, s_init_next,
 
 
 
     -- IDLE
 
-    s_idle,
-
-    s_idle_on_wait,
-
-    s_idle_off_wait,
+    s_idle, s_idle_on_wait, s_idle_off_wait,
 
 
 
     -- CLEAR avalanche memory
 
-    s_clr_addr,
-
-    s_clr_wr,
-
-    s_clr_next,
+    s_clr_addr, s_clr_wr, s_clr_next,
 
 
 
     -- Deposit grain
 
-    s_dep_sel,
-
-    s_dep_prng_wait,
-
-    s_dep_addr,
-
-    s_dep_wait,
-
-    s_dep_eval,
-
-    s_dep_wr,
-
-    s_dep_av_wr,
+    s_dep_sel, s_dep_prng_wait, s_dep_addr, s_dep_wait, s_dep_eval, s_dep_wr, s_dep_av_wr,
 
 
 
     -- Toppling scan iterativo
 
-    s_top_inicio,
-
-    s_top_addr,
-
-    s_top_wait,
-
-    s_top_eval,
+    s_top_inicio, s_top_addr, s_top_wait, s_top_eval,
 
 
 
@@ -184,9 +152,7 @@ type state is (
 
     -- Collapse current cell
 
-    s_zero_val,
-
-    s_zero_av,
+    s_zero_val, s_zero_av,
 
 
 
@@ -205,8 +171,6 @@ type state is (
     -- Timer
 
     s_timer
-
-
 
 );
 
@@ -244,7 +208,7 @@ if reset = '1' then
 
     active       <= '0';
 
-    cap_val      <= (others=>'0');
+    val_actual   <= (others=>'0');
 
     granos       <= to_unsigned(1, 3);
 
@@ -350,9 +314,7 @@ elsif rising_edge(clk) then
 
             -- deposita grano inicial en centro (31,31)
 
-            ab_val  <= std_logic_vector(
-
-                       to_unsigned(31,6) & to_unsigned(31,6));
+            ab_val  <= std_logic_vector(to_unsigned(31,6) & to_unsigned(31,6));
 
             dbi_val <= "001";
 
@@ -492,19 +454,38 @@ elsif rising_edge(clk) then
 
 
 
-    when s_dep_prng_wait =>
+   -- when s_dep_prng_wait =>
+
+     --   if op = '0' then
+
+       --     gx <= to_unsigned(31, 6);
+
+         --   gy <= to_unsigned(31, 6);
+
+        --else
+
+          --  gx <= unsigned(rx);
+
+            --gy <= unsigned(ry);
+
+       -- end if;
+
+        --st <= s_dep_addr;
+		  when s_dep_prng_wait =>
 
         if op = '0' then
 
-            gx <= to_unsigned(31, 6);
+            gx <= to_unsigned(32, 6); -- Cae en el Centro
 
-            gy <= to_unsigned(31, 6);
+            gy <= to_unsigned(32, 6); 
 
         else
 
-            gx <= unsigned(rx);
+            -- HACK DE PRUEBA: Forzamos la caída cerca de la esquina en vez del PRNG
 
-            gy <= unsigned(ry);
+            gx <= unsigned(rx); 
+
+            gy <= unsigned(ry); 
 
         end if;
 
@@ -522,13 +503,15 @@ elsif rising_edge(clk) then
 
     when s_dep_wait =>
 
-        cap_val <= unsigned(dbo_val);
+        -- Solo esperamos 1 ciclo para la latencia de memoria
 
         st      <= s_dep_eval;
 
 
 
     when s_dep_eval =>
+
+        -- Aquí dbo_val ya es válido
 
         sum_val <= unsigned(dbo_val) + granos;
 
@@ -540,13 +523,11 @@ elsif rising_edge(clk) then
 
         ab_val <= std_logic_vector(gy & gx);
 
-        -- almacena el valor sumado (puede ser >= 4)
-
-        -- el toppling se encargara de colapsar
-
         dbi_val <= std_logic_vector(sum_val);
 
         we_val  <= "1";
+
+        
 
         -- si ya hay desborde marca avalancha
 
@@ -590,8 +571,6 @@ elsif rising_edge(clk) then
 
     -- TOPPLING ITERATIVO
 
-    -- Repite el scan hasta que no haya celdas >= 4
-
     -- =====================================================
 
 
@@ -618,7 +597,7 @@ elsif rising_edge(clk) then
 
     when s_top_wait =>
 
-        cap_val <= unsigned(dbo_val);
+        -- Solo quemamos 1 ciclo de reloj
 
         st      <= s_top_eval;
 
@@ -632,7 +611,9 @@ elsif rising_edge(clk) then
 
             hubo_colapso <= '1';
 
-            st <= s_n_addr;
+            val_actual   <= unsigned(dbo_val); -- ¡NUEVO! Guardamos la celda crítica
+
+            st           <= s_n_addr;
 
         else
 
@@ -658,8 +639,6 @@ elsif rising_edge(clk) then
 
     when s_n_wait =>
 
-        cap_val <= unsigned(dbo_val);
-
         st      <= s_n_wr;
 
 
@@ -670,7 +649,9 @@ elsif rising_edge(clk) then
 
             ab_val  <= std_logic_vector((py-1) & px);
 
-            dbi_val <= std_logic_vector(cap_val + 1);
+            -- Sumamos 1 al dato seguro que acaba de escupir la RAM
+
+            dbi_val <= std_logic_vector(unsigned(dbo_val) + 1);
 
             we_val  <= "1";
 
@@ -696,8 +677,6 @@ elsif rising_edge(clk) then
 
     when s_s_wait =>
 
-        cap_val <= unsigned(dbo_val);
-
         st      <= s_s_wr;
 
 
@@ -708,7 +687,7 @@ elsif rising_edge(clk) then
 
             ab_val  <= std_logic_vector((py+1) & px);
 
-            dbi_val <= std_logic_vector(cap_val + 1);
+            dbi_val <= std_logic_vector(unsigned(dbo_val) + 1);
 
             we_val  <= "1";
 
@@ -734,8 +713,6 @@ elsif rising_edge(clk) then
 
     when s_w_wait =>
 
-        cap_val <= unsigned(dbo_val);
-
         st      <= s_w_wr;
 
 
@@ -746,7 +723,7 @@ elsif rising_edge(clk) then
 
             ab_val  <= std_logic_vector(py & (px-1));
 
-            dbi_val <= std_logic_vector(cap_val + 1);
+            dbi_val <= std_logic_vector(unsigned(dbo_val) + 1);
 
             we_val  <= "1";
 
@@ -772,8 +749,6 @@ elsif rising_edge(clk) then
 
     when s_e_wait =>
 
-        cap_val <= unsigned(dbo_val);
-
         st      <= s_e_wr;
 
 
@@ -784,7 +759,7 @@ elsif rising_edge(clk) then
 
             ab_val  <= std_logic_vector(py & (px+1));
 
-            dbi_val <= std_logic_vector(cap_val + 1);
+            dbi_val <= std_logic_vector(unsigned(dbo_val) + 1);
 
             we_val  <= "1";
 
@@ -800,9 +775,9 @@ elsif rising_edge(clk) then
 
         ab_val  <= std_logic_vector(py & px);
 
-        -- resta 4 al valor actual (puede quedar 0,1,2,3)
+        -- Restamos 4 usando el valor capturado al inicio del colapso
 
-        dbi_val <= std_logic_vector(cap_val - 4);
+        dbi_val <= std_logic_vector(val_actual - 4);
 
         we_val  <= "1";
 
@@ -872,7 +847,7 @@ elsif rising_edge(clk) then
 
         else
 
-            -- sin colapsos → iteracion completa
+            -- sin colapsos → iteracion completa, saltamos al timer
 
             st <= s_timer;
 
@@ -919,12 +894,6 @@ end process;
 
 
 end Behavioral;
-
-
-
-
-
-
 
 
 

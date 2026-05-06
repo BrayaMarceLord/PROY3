@@ -37,7 +37,7 @@ net "ini"   LOC="M17" | IOSTANDARD="LVCMOS33";
 
 net "bt<0>" LOC="J15" | IOSTANDARD="LVCMOS33";
 
-net "bt<1>" LOC="L16" | IOSTANDARD="LVCMOS33";
+net "bt<1>" LOC="R15" | IOSTANDARD="LVCMOS33";
 
 net "bt<2>" LOC="M13" | IOSTANDARD="LVCMOS33";
 
