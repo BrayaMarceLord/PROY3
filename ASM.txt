@@ -44,7 +44,7 @@ entity ASM is
 
         cinit : in  STD_LOGIC;
 
-        op    : in  STD_LOGIC;
+        op    : in  STD_LOGIC; -- '0' = Centro, '1' = Aleatorio
 
         gran  : in  STD_LOGIC;
 
@@ -85,7 +85,6 @@ signal active      : std_logic := '0';
 
 
 -- NUEVA SEÑAL para guardar el valor exacto de la celda que colapsa
-
 signal val_actual  : unsigned(2 downto 0) := (others=>'0');
 
 signal granos      : unsigned(2 downto 0) := (others=>'0');
@@ -93,8 +92,6 @@ signal granos      : unsigned(2 downto 0) := (others=>'0');
 signal sum_val     : unsigned(2 downto 0) := (others=>'0');
 
 
-
--- flag toppling iterativo
 
 signal hubo_colapso : std_logic := '0';
 
@@ -133,21 +130,27 @@ type state is (
 
 
     -- North
+=======
+    s_init, s_init_val_wr, s_init_av_wr, s_init_next,
+
+    s_idle, s_idle_on_wait, s_idle_off_wait,
+
+    s_clr_addr, s_clr_next,
+
+    s_dep_sel, s_dep_prng_wait, s_dep_addr, s_dep_wait, s_dep_eval, s_dep_wr, s_dep_av_wr,
+
+    s_top_inicio, s_top_addr, s_top_wait, s_top_eval,
+>>>>>>> 2b27ecd8bb5e97c34836ad13828e968b1c000bbd
 
     s_n_addr, s_n_wait, s_n_wr,
 
-    -- South
-
     s_s_addr, s_s_wait, s_s_wr,
-
-    -- West
 
     s_w_addr, s_w_wait, s_w_wr,
 
-    -- East
-
     s_e_addr, s_e_wait, s_e_wr,
 
+    s_zero_val, s_zero_av,
 
 
     -- Collapse current cell
@@ -171,6 +174,9 @@ type state is (
     -- Timer
 
     s_timer
+=======
+    s_next_cell, s_top_check, s_timer
+>>>>>>> 2b27ecd8bb5e97c34836ad13828e968b1c000bbd
 
 );
 
@@ -189,8 +195,6 @@ process(clk, reset)
 begin
 
 if reset = '1' then
-
-
 
     st           <= s_init;
 
@@ -216,8 +220,6 @@ if reset = '1' then
 
     hubo_colapso <= '0';
 
-
-
     we_val  <= "0";
 
     ab_val  <= (others=>'0');
@@ -236,8 +238,6 @@ if reset = '1' then
 
 elsif rising_edge(clk) then
 
-
-
     we_val  <= "0";
 
     we_av   <= "0";
@@ -252,15 +252,11 @@ elsif rising_edge(clk) then
 
     case st is
 
-
-
     -- =====================================================
 
-    -- INIT
+    -- INIT: Limpieza e inicialización
 
     -- =====================================================
-
-
 
     when s_init =>
 
@@ -283,8 +279,6 @@ elsif rising_edge(clk) then
             dbi_val <= "000";
 
         else
-
-            -- valores aleatorios 0-3 (bit2=0 siempre)
 
             dbi_val <= '0' & rval;
 
@@ -312,9 +306,21 @@ elsif rising_edge(clk) then
 
         if dir = to_unsigned(4095, 12) then
 
-            -- deposita grano inicial en centro (31,31)
+            -- Primer grano respetando la condición de op (Centro o Aleatorio)
+
 
             ab_val  <= std_logic_vector(to_unsigned(31,6) & to_unsigned(31,6));
+
+            if op = '0' then
+
+                ab_val <= std_logic_vector(to_unsigned(32,6) & to_unsigned(32,6));
+
+            else
+
+                ab_val <= std_logic_vector(ry & rx);
+
+            end if;
+
 
             dbi_val <= "001";
 
@@ -332,27 +338,17 @@ elsif rising_edge(clk) then
 
 
 
-    -- =====================================================
-
-    -- IDLE
-
-    -- =====================================================
-
 
 
     when s_idle =>
 
         if active = '0' then
 
-            if ini = '1' then
-
-                st <= s_idle_on_wait;
-
-            end if;
+            if ini = '1' then st <= s_idle_on_wait; end if;
 
         else
 
-            if ini = '1' then
+            if ini = '1' then 
 
                 st <= s_idle_off_wait;
 
@@ -360,7 +356,7 @@ elsif rising_edge(clk) then
 
                 dir <= (others=>'0');
 
-                st  <= s_clr_addr;
+                st  <= s_clr_addr; -- Inicia ciclo de generación
 
             end if;
 
@@ -370,33 +366,13 @@ elsif rising_edge(clk) then
 
     when s_idle_on_wait =>
 
-        if ini = '0' then
-
-            active <= '1';
-
-            st     <= s_idle;
-
-        end if;
+        if ini = '0' then active <= '1'; st <= s_idle; end if;
 
 
 
     when s_idle_off_wait =>
 
-        if ini = '0' then
-
-            active <= '0';
-
-            st     <= s_idle;
-
-        end if;
-
-
-
-    -- =====================================================
-
-    -- CLEAR: borra memi_av
-
-    -- =====================================================
+        if ini = '0' then active <= '0'; st <= s_idle; end if;
 
 
 
@@ -414,41 +390,20 @@ elsif rising_edge(clk) then
 
     when s_clr_next =>
 
-        if dir = to_unsigned(4095, 12) then
+        if dir = to_unsigned(4095, 12) then st <= s_dep_sel;
 
-            st <= s_dep_sel;
-
-        else
-
-            dir <= dir + 1;
-
-            st  <= s_clr_addr;
-
-        end if;
+        else dir <= dir + 1; st <= s_clr_addr; end if;
 
 
 
-    -- =====================================================
-
-    -- DEPOSIT
-
-    -- =====================================================
-
-
-
+ 
     when s_dep_sel =>
 
-        en <= '1';
+        en <= '1'; -- Activamos PRNG
 
-        if gran = '1' then
+        if gran = '1' then granos <= ('0' & unsigned(rval)) + 1;
 
-            granos <= ('0' & unsigned(rval)) + 1;
-
-        else
-
-            granos <= to_unsigned(1, 3);
-
-        end if;
+        else granos <= to_unsigned(1, 3); end if;
 
         st <= s_dep_prng_wait;
 
@@ -473,7 +428,10 @@ elsif rising_edge(clk) then
         --st <= s_dep_addr;
 		  when s_dep_prng_wait =>
 
+        -- AQUÍ SE CUMPLE TU CONDICIÓN:
+
         if op = '0' then
+
 
             gx <= to_unsigned(32, 6); -- Cae en el Centro
 
@@ -486,6 +444,17 @@ elsif rising_edge(clk) then
             gx <= unsigned(rx); 
 
             gy <= unsigned(ry); 
+
+            gx <= to_unsigned(32, 6); -- Centro exacto X
+
+            gy <= to_unsigned(32, 6); -- Centro exacto Y
+
+        else
+
+            gx <= unsigned(rx); -- Aleatorio X
+
+            gy <= unsigned(ry); -- Aleatorio Y
+
 
         end if;
 
@@ -503,7 +472,9 @@ elsif rising_edge(clk) then
 
     when s_dep_wait =>
 
+
         -- Solo esperamos 1 ciclo para la latencia de memoria
+
 
         st      <= s_dep_eval;
 
@@ -527,25 +498,12 @@ elsif rising_edge(clk) then
 
         we_val  <= "1";
 
-        
 
-        -- si ya hay desborde marca avalancha
 
-        if sum_val >= to_unsigned(4, 3) then
+        if sum_val >= to_unsigned(4, 3) then st <= s_dep_av_wr;
 
-            st <= s_dep_av_wr;
 
-        else
-
-            px           <= (others=>'0');
-
-            py           <= (others=>'0');
-
-            hubo_colapso <= '0';
-
-            st           <= s_top_inicio;
-
-        end if;
+        else st <= s_top_inicio; end if;
 
 
 
@@ -553,37 +511,18 @@ elsif rising_edge(clk) then
 
         ab_av  <= std_logic_vector(gy & gx);
 
-        dbi_av <= "1";
+        dbi_av <= "1"; we_av <= "1";
 
-        we_av  <= "1";
+        st <= s_top_inicio;
 
-        px           <= (others=>'0');
-
-        py           <= (others=>'0');
-
-        hubo_colapso <= '0';
-
-        st           <= s_top_inicio;
-
-
-
-    -- =====================================================
-
-    -- TOPPLING ITERATIVO
-
-    -- =====================================================
 
 
 
     when s_top_inicio =>
 
-        px           <= (others=>'0');
+        px <= (others=>'0'); py <= (others=>'0'); hubo_colapso <= '0';
 
-        py           <= (others=>'0');
-
-        hubo_colapso <= '0';
-
-        st           <= s_top_addr;
+        st <= s_top_addr;
 
 
 
@@ -595,11 +534,15 @@ elsif rising_edge(clk) then
 
 
 
+
     when s_top_wait =>
 
         -- Solo quemamos 1 ciclo de reloj
 
         st      <= s_top_eval;
+
+    when s_top_wait => st <= s_top_eval;
+
 
 
 
@@ -607,33 +550,28 @@ elsif rising_edge(clk) then
 
         if unsigned(dbo_val) >= 4 then
 
-            -- celda tiene >= 4 granos → colapsa
-
             hubo_colapso <= '1';
+
 
             val_actual   <= unsigned(dbo_val); -- ¡NUEVO! Guardamos la celda crítica
 
             st           <= s_n_addr;
 
-        else
-
-            st <= s_next_cell;
-
-        end if;
+            val_actual   <= unsigned(dbo_val);
 
 
+            st           <= s_n_addr;
 
-    -- ----- NORTH -----
+        else st <= s_next_cell; end if;
+
+
 
     when s_n_addr =>
 
-        if py > 0 then
-
-            ab_val <= std_logic_vector((py-1) & px);
-
-        end if;
+        if py > 0 then ab_val <= std_logic_vector((py-1) & px); end if;
 
         st <= s_n_wait;
+
 
 
 
@@ -643,17 +581,18 @@ elsif rising_edge(clk) then
 
 
 
+    when s_n_wait => st <= s_n_wr;
+
+
     when s_n_wr =>
 
         if py > 0 then
 
-            ab_val  <= std_logic_vector((py-1) & px);
+            ab_val <= std_logic_vector((py-1) & px);
 
-            -- Sumamos 1 al dato seguro que acaba de escupir la RAM
+          dbi_val <= std_logic_vector(unsigned(dbo_val) + 1);
 
-            dbi_val <= std_logic_vector(unsigned(dbo_val) + 1);
-
-            we_val  <= "1";
+            we_val <= "1";
 
         end if;
 
@@ -661,17 +600,12 @@ elsif rising_edge(clk) then
 
 
 
-    -- ----- SOUTH -----
-
     when s_s_addr =>
 
-        if py < 63 then
-
-            ab_val <= std_logic_vector((py+1) & px);
-
-        end if;
+        if py < 63 then ab_val <= std_logic_vector((py+1) & px); end if;
 
         st <= s_s_wait;
+
 
 
 
@@ -681,15 +615,18 @@ elsif rising_edge(clk) then
 
 
 
+    when s_s_wait => st <= s_s_wr;
+
+
     when s_s_wr =>
 
         if py < 63 then
 
-            ab_val  <= std_logic_vector((py+1) & px);
+            ab_val <= std_logic_vector((py+1) & px);
 
             dbi_val <= std_logic_vector(unsigned(dbo_val) + 1);
 
-            we_val  <= "1";
+            we_val <= "1";
 
         end if;
 
@@ -697,17 +634,12 @@ elsif rising_edge(clk) then
 
 
 
-    -- ----- WEST -----
-
     when s_w_addr =>
 
-        if px > 0 then
-
-            ab_val <= std_logic_vector(py & (px-1));
-
-        end if;
+        if px > 0 then ab_val <= std_logic_vector(py & (px-1)); end if;
 
         st <= s_w_wait;
+
 
 
 
@@ -717,15 +649,18 @@ elsif rising_edge(clk) then
 
 
 
+    when s_w_wait => st <= s_w_wr;
+
+
     when s_w_wr =>
 
         if px > 0 then
 
-            ab_val  <= std_logic_vector(py & (px-1));
+            ab_val <= std_logic_vector(py & (px-1));
 
             dbi_val <= std_logic_vector(unsigned(dbo_val) + 1);
 
-            we_val  <= "1";
+            we_val <= "1";
 
         end if;
 
@@ -733,17 +668,12 @@ elsif rising_edge(clk) then
 
 
 
-    -- ----- EAST -----
-
     when s_e_addr =>
 
-        if px < 63 then
-
-            ab_val <= std_logic_vector(py & (px+1));
-
-        end if;
+        if px < 63 then ab_val <= std_logic_vector(py & (px+1)); end if;
 
         st <= s_e_wait;
+
 
 
 
@@ -753,15 +683,18 @@ elsif rising_edge(clk) then
 
 
 
+    when s_e_wait => st <= s_e_wr;
+
+
     when s_e_wr =>
 
         if px < 63 then
 
-            ab_val  <= std_logic_vector(py & (px+1));
+            ab_val <= std_logic_vector(py & (px+1));
 
             dbi_val <= std_logic_vector(unsigned(dbo_val) + 1);
 
-            we_val  <= "1";
+            we_val <= "1";
 
         end if;
 
@@ -769,15 +702,11 @@ elsif rising_edge(clk) then
 
 
 
-    -- ----- COLAPSO CELDA ACTUAL (resta 4) -----
-
     when s_zero_val =>
 
         ab_val  <= std_logic_vector(py & px);
 
-        -- Restamos 4 usando el valor capturado al inicio del colapso
-
-        dbi_val <= std_logic_vector(val_actual - 4);
+      dbi_val <= std_logic_vector(val_actual - 4);
 
         we_val  <= "1";
 
@@ -789,15 +718,11 @@ elsif rising_edge(clk) then
 
         ab_av  <= std_logic_vector(py & px);
 
-        dbi_av <= "1";
-
-        we_av  <= "1";
+        dbi_av <= "1"; we_av <= "1";
 
         st     <= s_next_cell;
 
 
-
-    -- ----- SIGUIENTE CELDA -----
 
     when s_next_cell =>
 
@@ -805,38 +730,20 @@ elsif rising_edge(clk) then
 
             px <= (others=>'0');
 
-            if py = 63 then
+            if py = 63 then py <= (others=>'0'); st <= s_top_check;
 
-                py <= (others=>'0');
+            else py <= py + 1; st <= s_top_addr; end if;
 
-                st <= s_top_check;
-
-            else
-
-                py <= py + 1;
-
-                st <= s_top_addr;
-
-            end if;
-
-        else
-
-            px <= px + 1;
-
-            st <= s_top_addr;
-
-        end if;
+        else px <= px + 1; st <= s_top_addr; end if;
 
 
-
-    -- ----- VERIFICA SI REPETIR SCAN -----
 
     when s_top_check =>
 
-        if hubo_colapso = '1' then
+        if hubo_colapso = '1' then st <= s_top_inicio;
 
-            -- hubo colapsos → repetir scan completo
 
+        
             px           <= (others=>'0');
 
             py           <= (others=>'0');
@@ -847,51 +754,33 @@ elsif rising_edge(clk) then
 
         else
 
-            -- sin colapsos → iteracion completa, saltamos al timer
-
+       
             st <= s_timer;
 
         end if;
 
 
 
-    -- =====================================================
+        else st <= s_timer; end if;
 
-    -- TIMER
-
-    -- =====================================================
 
 
 
     when s_timer =>
 
-        if timer = 500000 then
+        if timer = 500000 then timer <= 0; st <= s_idle;
 
-            timer <= 0;
-
-            st    <= s_idle;
-
-        else
-
-            timer <= timer + 1;
-
-        end if;
+        else timer <= timer + 1; end if;
 
 
 
-    when others =>
-
-        st <= s_init;
-
-
+    when others => st <= s_init;
 
     end case;
 
 end if;
 
 end process;
-
-
 
 end Behavioral;
 

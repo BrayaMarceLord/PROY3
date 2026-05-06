@@ -16,9 +16,7 @@ entity proy1 is
 
         reset : in  STD_LOGIC;
 
-        -- ¡CORRECCIÓN! Reducido a 3 bits para coincidir con tu placa
-
-        bt    : in  STD_LOGIC_VECTOR(2 downto 0);
+       bt    : in  STD_LOGIC_VECTOR(2 downto 0);
 
         hsync : out STD_LOGIC;
 
