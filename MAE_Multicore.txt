@@ -1,0 +1,93 @@
+library IEEE;
+
+use IEEE.STD_LOGIC_1164.ALL;
+
+use work.proyecto1pack.all;
+
+
+
+entity MAE_Multicore is
+
+    Port (
+
+        clk      : in  STD_LOGIC;
+
+        ini      : in  STD_LOGIC;
+
+        reset    : in  STD_LOGIC;
+
+        sw_core1 : in  STD_LOGIC_VECTOR(2 downto 0);
+
+        sw_core2 : in  STD_LOGIC_VECTOR(2 downto 0);
+
+        cinit    : in  STD_LOGIC; -- Recibe cinit
+
+        dir_b    : in  STD_LOGIC_VECTOR(12 downto 0);
+
+        data     : out STD_LOGIC_VECTOR(3 downto 0)
+
+    );
+
+end MAE_Multicore;
+
+
+
+architecture Structural of MAE_Multicore is
+
+    signal turno : std_logic := '0';
+
+    signal we1, we2 : std_logic_vector(0 downto 0);
+
+    signal ab1, ab2 : std_logic_vector(12 downto 0);
+
+    signal dbi1, dbi2, dbo_m : std_logic_vector(3 downto 0);
+
+    signal we_arb : std_logic_vector(0 downto 0);
+
+    signal ab_arb : std_logic_vector(12 downto 0);
+
+    signal dbi_arb : std_logic_vector(3 downto 0);
+
+    signal rval1, rval2 : std_logic_vector(1 downto 0);
+
+    signal rx1, ry1, rx2, ry2 : std_logic_vector(5 downto 0);
+
+begin
+
+    process(clk) begin if rising_edge(clk) then turno <= not turno; end if; end process;
+
+
+
+    we_arb  <= we1 when turno = '0' else we2;
+
+    ab_arb  <= ab1 when turno = '0' else ab2;
+
+    dbi_arb <= dbi1 when turno = '0' else dbi2;
+
+
+
+    Inst_Mem: entity work.mem port map (
+
+        clka => clk, wea => we_arb, addra => ab_arb, dina => dbi_arb, douta => dbo_m,
+
+        clkb => clk, web => "0", addrb => dir_b, dinb => "0000", doutb => data
+
+    );
+
+
+
+    Inst_PRNG_1: entity work.PRNG generic map (SEED => "11001100") port map (clk => clk, random_out => rval1, rand_x => rx1, rand_y => ry1);
+
+    Inst_PRNG_2: entity work.PRNG generic map (SEED => "00110011") port map (clk => clk, random_out => rval2, rand_x => rx2, rand_y => ry2);
+
+
+
+    Core1: entity work.ASM port map ( clk => turno, ini => ini, reset => reset, we => we1, ab => ab1, dbi => dbi1, dbo => dbo_m, px_offset => '0', EnaN => sw_core1(0), CtrlV => sw_core1(1), DesC => sw_core1(2), cinit => cinit, rx => rx1, ry => ry1, rval => rval1 );
+
+    Core2: entity work.ASM port map ( clk => not turno, ini => ini, reset => reset, we => we2, ab => ab2, dbi => dbi2, dbo => dbo_m, px_offset => '1', EnaN => sw_core2(0), CtrlV => sw_core2(1), DesC => sw_core2(2), cinit => cinit, rx => rx2, ry => ry2, rval => rval2 );
+
+end Structural;
+
+
+
+

@@ -2,27 +2,29 @@ library IEEE;
 
 use IEEE.STD_LOGIC_1164.ALL;
 
-use IEEE.NUMERIC_STD.ALL;
-
 
 
 entity proy1 is
 
     Port (
 
-        clk   : in  STD_LOGIC;
+        clk      : in  STD_LOGIC;
 
-        ini   : in  STD_LOGIC;
+        ini      : in  STD_LOGIC;
 
-        reset : in  STD_LOGIC;
+        reset    : in  STD_LOGIC;
 
-        bt    : in  STD_LOGIC_VECTOR(1 downto 0);
+        cinit    : in  STD_LOGIC;
 
-        hsync : out STD_LOGIC;
+        sw_core1 : in  STD_LOGIC_VECTOR(2 downto 0);
 
-        vsync : out STD_LOGIC;
+        sw_core2 : in  STD_LOGIC_VECTOR(2 downto 0);
 
-        rgb   : out STD_LOGIC_VECTOR(11 downto 0)
+        hsync    : out STD_LOGIC;
+
+        vsync    : out STD_LOGIC;
+
+        rgb      : out STD_LOGIC_VECTOR(11 downto 0)
 
     );
 
@@ -32,93 +34,63 @@ end proy1;
 
 architecture Behavioral of proy1 is
 
+    -- Señales VGA
 
+    signal hcount_i : std_logic_vector(10 downto 0);
 
-signal hcounti : std_logic_vector(10 downto 0);
+    signal vcount_i : std_logic_vector(9 downto 0);
 
-signal vcounti : std_logic_vector(9 downto 0);
+    
 
-signal dir_b_i : std_logic_vector(11 downto 0);
+    -- Dirección que el VGA le pasa al GU para calcular
 
-signal data_i  : std_logic_vector(3 downto 0);
+    -- La memoria recibe la dirección desde el GU, no desde el VGAC
 
-signal clk_25  : std_logic; -- Señal que viaja desde el VGA al resto
+    signal dir_mem_i: std_logic_vector(12 downto 0); 
 
+    
 
+    signal data_i   : std_logic_vector(3 downto 0);
 
 begin
 
 
 
--- MAE (Máquina y Memoria)
+    -- 1. VGAC solo genera coordenadas
 
-c0: entity work.MAE
+    Inst_VGAC: entity work.vgac port map (
 
-port map (
+        clk => clk, reset => reset, hsync => hsync, vsync => vsync, 
 
-    clk    => clk,
+        hcount => hcount_i, vcount => vcount_i, dir => open -- Ya no controlamos dir aquí
 
-    clk_25 => clk_25,  -- Recibe el reloj desde el controlador VGA
-
-    ini    => ini,
-
-    reset  => reset,
-
-    dir_b  => dir_b_i,
-
-    data   => data_i,
-
-    bt     => bt
-
-);
+    );
 
 
 
--- CONTROLADOR VGA (Ahora contiene el divisor de reloj)
+    -- 2. GU recibe coordenadas y genera la dirección para la RAM
 
-c1: entity work.vgac
+    Inst_GU: entity work.GU port map (
 
-port map (
+        clk => clk, data => data_i, hcount => hcount_i, 
 
-    clk        => clk,         -- Entran 100MHz
+        vcount => vcount_i, rgb => rgb, dir_b => dir_mem_i
 
-    reset      => reset,
-
-    clk_25_out => clk_25,      -- Salen 25MHz
-
-    hsync      => hsync,
-
-    vsync      => vsync,
-
-    dir        => open,
-
-    hcount     => hcounti,
-
-    vcount     => vcounti
-
-);
+    );
 
 
 
--- UNIDAD DE GRÁFICOS
+    -- 3. MAE recibe la dirección del GU
 
-c2: entity work.GU
+    Inst_MAE: entity work.MAE_Multicore port map (
 
-port map (
+        clk => clk, ini => ini, reset => reset, cinit => cinit,
 
-    clk    => clk_25,          -- Recibe el reloj de 25MHz
+        sw_core1 => sw_core1, sw_core2 => sw_core2, 
 
-    data   => data_i,
+        dir_b => dir_mem_i, data => data_i
 
-    hcount => hcounti,
-
-    vcount => vcounti,
-
-    rgb    => rgb,
-
-    dir_b  => dir_b_i
-
-);
+    );
 
 
 

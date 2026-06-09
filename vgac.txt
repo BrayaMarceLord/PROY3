@@ -1,27 +1,26 @@
-
 library IEEE;
 
 use IEEE.STD_LOGIC_1164.ALL;
 
-use IEEE.NUMERIC_STD.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 
 
 entity vgac is
 
-    Port ( 
+    Port (
 
-        clk        : in  STD_LOGIC; -- 100 MHz
+        clk        : in  STD_LOGIC;
+
+        clk_25_out : out STD_LOGIC;
 
         reset      : in  STD_LOGIC;
-
-        clk_25_out : out STD_LOGIC; -- Exporta 25 MHz para el resto del sistema
 
         hsync      : out STD_LOGIC;
 
         vsync      : out STD_LOGIC;
 
-        dir        : out STD_LOGIC_VECTOR (11 downto 0); -- (No se usa, pero se mantiene por compatibilidad)
+        dir        : out STD_LOGIC_VECTOR (12 downto 0); -- Actualizado a 13 bits
 
         hcount     : out STD_LOGIC_VECTOR (10 downto 0);
 
@@ -35,183 +34,121 @@ end vgac;
 
 architecture Behavioral of vgac is
 
+    -- Señales para generar el reloj de 25MHz a partir de los 100MHz (Para 640x480)
 
+    signal clk_25 : std_logic := '0';
 
--- Contadores internos
+    signal clk_div : std_logic_vector(1 downto 0) := "00";
 
-signal hc : unsigned(10 downto 0) := (others => '0');
+    
 
-signal vc : unsigned(9 downto 0)  := (others => '0');
+    -- Contadores de barrido de pantalla
 
+    signal h_cnt : std_logic_vector(10 downto 0) := (others => '0');
 
-
--- Señales de reloj
-
-signal clk_50 : std_logic := '0';
-
-signal clk_25 : std_logic := '0';
-
-
+    signal v_cnt : std_logic_vector(9 downto 0) := (others => '0');
 
 begin
 
 
 
--- =====================================================
+    -- Divisor de frecuencia (100MHz a 25MHz)
 
--- DIVISOR DE RELOJ INTERNO (100MHz -> 25MHz)
+    process(clk, reset)
 
--- =====================================================
+    begin
 
-process(clk, reset)
+        if reset = '1' then
 
-begin
+            clk_div <= "00";
 
-    if reset = '1' then
+            clk_25 <= '0';
 
-        clk_50 <= '0';
+        elsif rising_edge(clk) then
 
-        clk_25 <= '0';
+            if clk_div = "01" then
 
-    elsif rising_edge(clk) then
+                clk_25 <= not clk_25;
 
-        clk_50 <= not clk_50;
-
-        if clk_50 = '1' then
-
-            clk_25 <= not clk_25;
-
-        end if;
-
-    end if;
-
-end process;
-
-
-
-clk_25_out <= clk_25;
-
-
-
--- =====================================================
-
--- CONTADORES VGA (Estándar 640x480 @ 60Hz)
-
--- =====================================================
-
--- Horizontal: Visible (640) + Front(16) + Sync(96) + Back(48) = 800
-
-process(clk_25, reset)
-
-begin
-
-    if reset = '1' then
-
-        hc <= (others => '0');
-
-    elsif rising_edge(clk_25) then
-
-        if hc = 799 then
-
-            hc <= (others => '0');
-
-        else
-
-            hc <= hc + 1;
-
-        end if;
-
-    end if;
-
-end process;
-
-
-
--- Vertical: Visible (480) + Front(10) + Sync(2) + Back(33) = 525
-
-process(clk_25, reset)
-
-begin
-
-    if reset = '1' then
-
-        vc <= (others => '0');
-
-    elsif rising_edge(clk_25) then
-
-        if hc = 799 then
-
-            if vc = 524 then
-
-                vc <= (others => '0');
+                clk_div <= "00";
 
             else
 
-                vc <= vc + 1;
+                clk_div <= clk_div + 1;
 
             end if;
 
         end if;
 
-    end if;
+    end process;
 
-end process;
+    
+
+    clk_25_out <= clk_25;
 
 
 
--- =====================================================
+    -- Lógica de barrido horizontal y vertical (Tiempos estándar VGA)
 
--- GENERACIÓN DE SYNC (Polaridad Negativa Estándar)
+    process(clk_25, reset)
 
--- =====================================================
+    begin
 
-process(clk_25)
+        if reset = '1' then
 
-begin
+            h_cnt <= (others => '0');
 
-    if rising_edge(clk_25) then
+            v_cnt <= (others => '0');
 
-        -- HSync: Pulso entre 656 y 751 (duración de 96 píxeles)
+        elsif rising_edge(clk_25) then
 
-        if (hc >= 656) and (hc <= 751) then
+            if h_cnt = 799 then
 
-            hsync <= '0'; -- Pulso activo bajo
+                h_cnt <= (others => '0');
 
-        else
+                if v_cnt = 524 then
 
-            hsync <= '1';
+                    v_cnt <= (others => '0');
+
+                else
+
+                    v_cnt <= v_cnt + 1;
+
+                end if;
+
+            else
+
+                h_cnt <= h_cnt + 1;
+
+            end if;
 
         end if;
 
-
-
-        -- VSync: Pulso entre 490 y 491 (duración de 2 líneas)
-
-        if (vc >= 490) and (vc <= 491) then
-
-            vsync <= '0'; -- Pulso activo bajo
-
-        else
-
-            vsync <= '1';
-
-        end if;
-
-    end if;
-
-end process;
+    end process;
 
 
 
--- Enviamos las coordenadas actuales a la GU
+    -- Generación de señales de sincronización (Polaridad activa baja)
 
--- HC y VC valen 0 en la esquina superior izquierda visible.
+    hsync <= '0' when (h_cnt >= 656 and h_cnt <= 751) else '1';
 
-hcount <= std_logic_vector(hc);
+    vsync <= '0' when (v_cnt >= 490 and v_cnt <= 491) else '1';
 
-vcount <= std_logic_vector(vc);
 
-dir    <= (others => '0');
+
+    -- Exportar contadores al módulo GU
+
+    hcount <= h_cnt;
+
+    vcount <= v_cnt;
+
+    
+
+    -- Se asigna a '0' ya que la dirección de memoria final se procesa en el GU
+
+    -- Se mantiene este puerto para asegurar compatibilidad con la estructura del paquete.
+
+    dir <= (others => '0');
 
 
 

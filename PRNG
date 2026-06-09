@@ -2,25 +2,15 @@ library IEEE;
 
 use IEEE.STD_LOGIC_1164.ALL;
 
-use IEEE.NUMERIC_STD.ALL;
-
 
 
 entity PRNG is
 
-    Port (
+    Generic (SEED : std_logic_vector(7 downto 0) := "10101010");
 
-        clk   : in  STD_LOGIC;
+    Port ( clk : in STD_LOGIC; random_out : out std_logic_vector(1 downto 0);
 
-        reset : in  STD_LOGIC;
-
-        rx    : out STD_LOGIC_VECTOR(5 downto 0);
-
-        ry    : out STD_LOGIC_VECTOR(5 downto 0);
-
-        rval  : out STD_LOGIC_VECTOR(1 downto 0)
-
-    );
+           rand_x : out std_logic_vector(5 downto 0); rand_y : out std_logic_vector(5 downto 0) );
 
 end PRNG;
 
@@ -28,43 +18,25 @@ end PRNG;
 
 architecture Behavioral of PRNG is
 
-    -- LFSR de 14 bits para cubrir X(6), Y(6) y Val(2)
-
-    signal lfsr : std_logic_vector(13 downto 0) := "10101100110101";
+    signal lfsr : std_logic_vector(7 downto 0) := SEED;
 
 begin
 
-    process(clk, reset)
+    process(clk) begin
 
-        variable feedback : std_logic;
+        if rising_edge(clk) then
 
-    begin
-
-        if reset = '1' then
-
-            lfsr <= "10101100110101"; -- Semilla inicial
-
-        elsif rising_edge(clk) then
-
-            -- Polinomio para 14 bits: x^14 + x^13 + x^12 + x^2 + 1
-
-            feedback := lfsr(13) xnor lfsr(12) xnor lfsr(11) xnor lfsr(1);
-
-            lfsr <= lfsr(12 downto 0) & feedback;
+            lfsr <= lfsr(6 downto 0) & (lfsr(7) xor lfsr(5) xor lfsr(4) xor lfsr(3));
 
         end if;
 
     end process;
 
+    random_out <= lfsr(1 downto 0);
 
+    rand_x <= lfsr(5 downto 0);
 
-    -- Asignación de bits (Carrera libre)
-
-    rx   <= lfsr(5 downto 0);
-
-    ry   <= lfsr(11 downto 6);
-
-    rval <= lfsr(13 downto 12);
+    rand_y <= lfsr(7 downto 2);
 
 end Behavioral;
 

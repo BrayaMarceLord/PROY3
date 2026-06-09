@@ -1,1314 +1,270 @@
 library IEEE;
 
-
-
 use IEEE.STD_LOGIC_1164.ALL;
-
-
 
 use IEEE.NUMERIC_STD.ALL;
 
 
 
-
-
-
-
 entity ASM is
-
-
 
     Port (
 
+        clk        : in  STD_LOGIC;
 
+        ini        : in  STD_LOGIC;
 
-        clk   : in  STD_LOGIC;
+        reset      : in  STD_LOGIC;
 
+        we         : out STD_LOGIC_VECTOR(0 downto 0);
 
+        ab         : out STD_LOGIC_VECTOR(12 downto 0);
 
-        ini   : in  STD_LOGIC;
+        dbi        : out STD_LOGIC_VECTOR(3 downto 0);
 
+        dbo        : in  STD_LOGIC_VECTOR(3 downto 0);
 
+        px_offset  : in  STD_LOGIC;
 
-        reset : in  STD_LOGIC;
+        EnaN       : in  STD_LOGIC; 
 
+        CtrlV      : in  STD_LOGIC; 
 
+        DesC       : in  STD_LOGIC; -- AHORA CONTROLA CENTRO (0) vs ALEATORIO (1)
 
+        cinit      : in  STD_LOGIC; -- AHORA CONTROLA LIMPIO (0) vs RUIDO (1)
 
+        rx         : in  STD_LOGIC_VECTOR(5 downto 0);
 
+        ry         : in  STD_LOGIC_VECTOR(5 downto 0);
 
-
-        -- Puerto memoria unificada
-
-
-
-        we  : out STD_LOGIC_VECTOR(0 downto 0);
-
-
-
-        ab  : out STD_LOGIC_VECTOR(11 downto 0);
-
-
-
-        dbi : out STD_LOGIC_VECTOR(3 downto 0);
-
-
-
-        dbo : in  STD_LOGIC_VECTOR(3 downto 0);
-
-
-
-
-
-
-
-        -- Control
-
-
-
-        cinit : in  STD_LOGIC;
-
-
-
-        op    : in  STD_LOGIC;
-
-
-
-
-
-
-
-        -- PRNG
-
-
-
-        rx    : in  STD_LOGIC_VECTOR(5 downto 0);
-
-
-
-        ry    : in  STD_LOGIC_VECTOR(5 downto 0);
-
-
-
-        rval  : in  STD_LOGIC_VECTOR(1 downto 0)
-
-
+        rval       : in  STD_LOGIC_VECTOR(1 downto 0)
 
     );
-
-
 
 end ASM;
 
 
 
-
-
-
-
 architecture Behavioral of ASM is
 
+constant TIMER_V1 : integer := 500000;
 
+constant TIMER_V2 : integer := 50000;
 
+signal px, py        : unsigned(5 downto 0) := (others => '0');
 
+signal gx, gy        : unsigned(5 downto 0) := (others => '0');
 
+signal dir           : unsigned(11 downto 0) := (others => '0');
 
-
-signal px, py        : unsigned(5 downto 0) := (others=>'0');
-
-
-
-signal gx, gy        : unsigned(5 downto 0) := (others=>'0');
-
-
-
-signal dir           : unsigned(11 downto 0) := (others=>'0');
-
-
-
-
-
-
-
-signal timer         : integer range 0 to 20000000 := 0;
-
-
+signal timer         : integer range 0 to 500000 := 0;
 
 signal active        : std_logic := '0';
 
-
-
 signal ini_prev      : std_logic := '0';
 
-
-
-signal init_center   : std_logic := '0';
-
-
-
-
-
-
-
-signal val_actual    : unsigned(2 downto 0) := (others=>'0');
-
-
+signal val_actual    : unsigned(2 downto 0) := (others => '0');
 
 signal hubo_colapso  : std_logic := '0';
 
-
-
 signal vecino        : integer range 0 to 3 := 0;
 
+signal ny, nx        : unsigned(5 downto 0) := (others => '0');
 
+signal n_offset      : std_logic := '0'; 
 
 
 
-
-
-type estado_maquina is (
-
-
-
-    inicializacion,
-
-
-
-    reposo,
-
-
-
-    limpiar_dir_avalancha,
-
-
-
-    limpiar_esperar_memoria,
-
-
-
-    limpiar_escribir_memoria,
-
-
-
-    depositar_seleccionar_grano,
-
-
-
-    depositar_calcular_dir,
-
-
-
-    depositar_esperar_memoria,
-
-
-
-    depositar_evaluar_y_escribir,
-
-
-
-    escanear_calcular_dir,
-
-
-
-    escanear_esperar_memoria,
-
-
-
-    escanear_evaluar_colapso,
-
-
-
-    actualizar_vecino_dir,
-
-
-
-    actualizar_vecino_esperar,
-
-
-
-    actualizar_vecino_escribir,
-
-
-
-    colapsar_celda_central,
-
-
-
-    avanzar_siguiente_celda,
-
-
-
-    temporizador_caida
-
-
-
-);
-
-
-
-
-
-
+type estado_maquina is ( inicializacion, reposo, depositar_seleccionar_grano, depositar_calcular_dir, depositar_esperar_memoria, depositar_evaluar_y_escribir, escanear_calcular_dir, escanear_esperar_memoria, escanear_evaluar_colapso, actualizar_vecino_dir, actualizar_vecino_esperar, actualizar_vecino_escribir, colapsar_celda_central, avanzar_siguiente_celda, temporizador_caida );
 
 signal st : estado_maquina := inicializacion;
 
 
 
-
-
-
-
 begin
 
-
-
-
-
-
-
-process(clk, reset)
-
-
-
-begin
-
-
+process(clk, reset) begin
 
 if reset = '1' then
 
+    st <= inicializacion; px <= (others => '0'); py <= (others => '0'); gx <= (others => '0'); gy <= (others => '0');
 
+    dir <= (others => '0'); timer <= 0; active <= '0'; ini_prev <= '0'; val_actual <= (others => '0');
 
+    hubo_colapso <= '0'; vecino <= 0; ny <= (others => '0'); nx <= (others => '0'); n_offset <= '0';
 
-
-
-
-    st           <= inicializacion;
-
-
-
-    px           <= (others=>'0');
-
-
-
-    py           <= (others=>'0');
-
-
-
-    gx           <= (others=>'0');
-
-
-
-    gy           <= (others=>'0');
-
-
-
-    dir          <= (others=>'0');
-
-
-
-    timer        <= 0;
-
-
-
-    active       <= '0';
-
-
-
-    ini_prev     <= '0';
-
-
-
-    init_center  <= '0';
-
-
-
-    val_actual   <= (others=>'0');
-
-
-
-    hubo_colapso <= '0';
-
-
-
-    vecino       <= 0;
-
-
-
-
-
-
-
-    we  <= "0";
-
-
-
-    ab  <= (others=>'0');
-
-
-
-    dbi <= (others=>'0');
-
-
-
-
-
-
+    we <= "0"; ab <= (others => '0'); dbi <= (others => '0');
 
 elsif rising_edge(clk) then
 
-
-
-
-
-
-
-    we  <= "0";
-
-
-
-    dbi <= (others=>'0');
-
-
-
-
-
-
+    we <= "0"; dbi <= (others => '0');
 
     case st is
 
 
 
-
-
-
-
-    -- =====================================================
-
-
-
-    -- INICIALIZACION
-
-
-
-    -- =====================================================
-
-
-
-
-
-
-
     when inicializacion =>
 
+        we  <= "1";
 
+        ab  <= px_offset & std_logic_vector(dir);
 
-        we <= "1";
+        -- Restaurado: cinit decide si limpia con 0s o con arena aleatoria
 
+        if cinit = '0' then dbi <= "0000"; else dbi <= '0' & rval & '0'; end if;
 
+        
 
-        if init_center = '1' then
+        if dir = "111111111111" then dir <= (others => '0'); st <= reposo;
 
-
-
-            ab          <= "011111011111";
-
-
-
-            dbi         <= "0010";
-
-
-
-            dir         <= (others=>'0');
-
-
-
-            init_center <= '0';
-
-
-
-            st          <= reposo;
-
-
-
-        else
-
-
-
-            ab <= std_logic_vector(dir);
-
-
-
-            if cinit = '0' then
-
-
-
-                dbi <= "0000";
-
-
-
-            else
-
-
-
-                dbi <= '0' & rval & '0';
-
-
-
-            end if;
-
-
-
-
-
-
-
-            if dir = "111111111111" then
-
-
-
-                init_center <= '1';
-
-
-
-            else
-
-
-
-                dir <= dir + 1;
-
-
-
-                st  <= inicializacion;
-
-
-
-            end if;
-
-
-
-        end if;
-
-
-
-
-
-
-
-    -- =====================================================
-
-
-
-    -- REPOSO
-
-
-
-    -- =====================================================
-
-
-
-
+        else dir <= dir + 1; end if;
 
 
 
     when reposo =>
 
-
-
         ini_prev <= ini;
 
+        if ini = '1' and ini_prev = '0' then active <= not active; end if;
 
+        if active = '1' and EnaN = '1' then
 
-        if ini = '1' and ini_prev = '0' then
+            px <= (others => '0'); py <= (others => '0');
 
-
-
-            active <= not active;
-
-
+            st <= depositar_seleccionar_grano; -- Siempre avanza a depositar si está habilitado
 
         end if;
 
 
 
-        if active = '1' then
+    when depositar_seleccionar_grano => st <= depositar_calcular_dir;
 
-
-
-            dir <= (others=>'0');
-
-
-
-            st  <= limpiar_dir_avalancha;
-
-
-
-        end if;
-
-
-
-
-
-
-
-    -- =====================================================
-
-
-
-    -- LIMPIAR FLAG DE AVALANCHA
-
-
-
-    -- =====================================================
-
-
-
-
-
-
-
-    when limpiar_dir_avalancha =>
-
-
-
-        ab <= std_logic_vector(dir);
-
-
-
-        st <= limpiar_esperar_memoria;
-
-
-
-
-
-
-
-    when limpiar_esperar_memoria =>
-
-
-
-        st <= limpiar_escribir_memoria;
-
-
-
-
-
-
-
-    when limpiar_escribir_memoria =>
-
-
-
-        ab  <= std_logic_vector(dir);
-
-
-
-        dbi <= dbo(3 downto 1) & '0';
-
-
-
-        we  <= "1";
-
-
-
-        if dir = "111111111111" then
-
-
-
-            st <= depositar_seleccionar_grano;
-
-
-
-        else
-
-
-
-            dir <= dir + 1;
-
-
-
-            st  <= limpiar_dir_avalancha;
-
-
-
-        end if;
-
-
-
-
-
-
-
-    -- =====================================================
-
-
-
-    -- DEPOSITAR GRANO
-
-
-
-    -- =====================================================
-
-
-
-
-
-
-
-    when depositar_seleccionar_grano =>
-
-
-
-        st <= depositar_calcular_dir;
-
-
-
-
-
-
+    
 
     when depositar_calcular_dir =>
 
+        -- Nueva lógica: DesC es el encargado de elegir la posición
 
+        if DesC = '0' then 
 
-        if op = '0' then
+            gx <= "100000"; gy <= "100000"; ab <= px_offset & "100000100000"; -- Centro de la pila
 
+        else 
 
-
-            gx <= "100000";
-
-
-
-            gy <= "100000";
-
-
-
-            ab <= "100000100000";
-
-
-
-        else
-
-
-
-            gx <= unsigned(rx);
-
-
-
-            gy <= unsigned(ry);
-
-
-
-            ab <= ry & rx;
-
-
+            gx <= unsigned(rx); gy <= unsigned(ry); ab <= px_offset & ry & rx; -- Aleatorio
 
         end if;
-
-
 
         st <= depositar_esperar_memoria;
 
 
 
-
-
-
-
-    when depositar_esperar_memoria =>
-
-
-
-        st <= depositar_evaluar_y_escribir;
-
-
-
-
-
-
+    when depositar_esperar_memoria => st <= depositar_evaluar_y_escribir;
 
     when depositar_evaluar_y_escribir =>
 
+        ab <= px_offset & std_logic_vector(gy & gx); dbi <= std_logic_vector(unsigned(dbo(3 downto 1)) + 1) & '0';
 
+        we <= "1"; px <= (others => '0'); py <= (others => '0'); hubo_colapso <= '0'; st <= escanear_calcular_dir;
 
-        ab <= std_logic_vector(gy & gx);
 
 
+    when escanear_calcular_dir => ab <= px_offset & std_logic_vector(py & px); st <= escanear_esperar_memoria;
 
-        if unsigned(dbo(3 downto 1)) + 1 >= 4 then
-
-
-
-            dbi <= std_logic_vector(unsigned(dbo(3 downto 1)) + 1) & '1';
-
-
-
-        else
-
-
-
-            dbi <= std_logic_vector(unsigned(dbo(3 downto 1)) + 1) & dbo(0);
-
-
-
-        end if;
-
-
-
-        we           <= "1";
-
-
-
-        px           <= (others=>'0');
-
-
-
-        py           <= (others=>'0');
-
-
-
-        hubo_colapso <= '0';
-
-
-
-        st           <= escanear_calcular_dir;
-
-
-
-
-
-
-
-    -- =====================================================
-
-
-
-    -- TOPPLING ITERATIVO
-
-
-
-    -- =====================================================
-
-
-
-
-
-
-
-    when escanear_calcular_dir =>
-
-
-
-        ab <= std_logic_vector(py & px);
-
-
-
-        st <= escanear_esperar_memoria;
-
-
-
-
-
-
-
-    when escanear_esperar_memoria =>
-
-
-
-        st <= escanear_evaluar_colapso;
-
-
-
-
-
-
+    when escanear_esperar_memoria => st <= escanear_evaluar_colapso;
 
     when escanear_evaluar_colapso =>
 
-
-
         if unsigned(dbo(3 downto 1)) >= 4 then
 
+            hubo_colapso <= '1'; val_actual <= unsigned(dbo(3 downto 1)); vecino <= 0; st <= actualizar_vecino_dir;
 
-
-            hubo_colapso <= '1';
-
-
-
-            val_actual   <= unsigned(dbo(3 downto 1));
+        else st <= avanzar_siguiente_celda; end if;
 
 
 
-            vecino       <= 0;
-
-
-
-            st           <= actualizar_vecino_dir;
-
-
-
-        else
-
-
-
-            st <= avanzar_siguiente_celda;
-
-
-
-        end if;
-
-
-
-
-
-
-
-    -- =====================================================
-
-
-
-    -- ACTUALIZAR VECINOS (N, S, W, E)
-
-
-
-    -- =====================================================
-
-
-
-
-
-
-
-    when actualizar_vecino_dir =>
-
-
+   when actualizar_vecino_dir =>
 
         case vecino is
 
+            when 0 => -- Norte
 
+                if py > 0 then ny <= py - 1; else ny <= "111111"; end if;
 
-            when 0 =>
+                nx <= px; n_offset <= px_offset; st <= actualizar_vecino_esperar;
 
+            when 1 => -- Sur
 
+                if py < 63 then ny <= py + 1; else ny <= "000000"; end if;
 
-                if py > 0 then
+                nx <= px; n_offset <= px_offset; st <= actualizar_vecino_esperar;
 
+            when 2 => -- Oeste
 
+                ny <= py;
 
-                    ab <= std_logic_vector((py-1) & px);
+                if px > 0 then nx <= px - 1; n_offset <= px_offset; 
 
+                else nx <= "111111"; n_offset <= not px_offset; end if;
 
+                st <= actualizar_vecino_esperar;
 
-                    st <= actualizar_vecino_esperar;
+            when others => -- Este
 
+                ny <= py;
 
+                if px < 63 then nx <= px + 1; n_offset <= px_offset;
 
-                else
+                else nx <= "000000"; n_offset <= not px_offset; end if;
 
-
-
-                    vecino <= 1;
-
-
-
-                    st     <= actualizar_vecino_dir;
-
-
-
-                end if;
-
-
-
-            when 1 =>
-
-
-
-                if py < 63 then
-
-
-
-                    ab <= std_logic_vector((py+1) & px);
-
-
-
-                    st <= actualizar_vecino_esperar;
-
-
-
-                else
-
-
-
-                    vecino <= 2;
-
-
-
-                    st     <= actualizar_vecino_dir;
-
-
-
-                end if;
-
-
-
-            when 2 =>
-
-
-
-                if px > 0 then
-
-
-
-                    ab <= std_logic_vector(py & (px-1));
-
-
-
-                    st <= actualizar_vecino_esperar;
-
-
-
-                else
-
-
-
-                    vecino <= 3;
-
-
-
-                    st     <= actualizar_vecino_dir;
-
-
-
-                end if;
-
-
-
-            when others =>
-
-
-
-                if px < 63 then
-
-
-
-                    ab <= std_logic_vector(py & (px+1));
-
-
-
-                    st <= actualizar_vecino_esperar;
-
-
-
-                else
-
-
-
-                    st <= colapsar_celda_central;
-
-
-
-                end if;
-
-
+                st <= actualizar_vecino_esperar;
 
         end case;
 
-
-
-
-
-
-
-    when actualizar_vecino_esperar =>
-
-
-
-        st <= actualizar_vecino_escribir;
-
-
-
-
-
-
+    when actualizar_vecino_esperar => ab <= n_offset & std_logic_vector(ny & nx); st <= actualizar_vecino_escribir;
 
     when actualizar_vecino_escribir =>
 
+        ab <= n_offset & std_logic_vector(ny & nx); dbi <= std_logic_vector(unsigned(dbo(3 downto 1)) + 1) & '0'; we <= "1";
 
+        if vecino = 3 then st <= colapsar_celda_central; else vecino <= vecino + 1; st <= actualizar_vecino_dir; end if;
 
-        case vecino is
 
 
-
-            when 0      => ab <= std_logic_vector((py-1) & px);
-
-
-
-            when 1      => ab <= std_logic_vector((py+1) & px);
-
-
-
-            when 2      => ab <= std_logic_vector(py & (px-1));
-
-
-
-            when others => ab <= std_logic_vector(py & (px+1));
-
-
-
-        end case;
-
-
-
-        dbi <= std_logic_vector(unsigned(dbo(3 downto 1)) + 1) & dbo(0);
-
-
-
-        we  <= "1";
-
-
-
-        if vecino = 3 then
-
-
-
-            st <= colapsar_celda_central;
-
-
-
-        else
-
-
-
-            vecino <= vecino + 1;
-
-
-
-            st     <= actualizar_vecino_dir;
-
-
-
-        end if;
-
-
-
-
-
-
-
-    -- =====================================================
-
-
-
-    -- COLAPSAR CELDA CENTRAL
-
-
-
-    -- =====================================================
-
-
-
-
-
-
-
-    when colapsar_celda_central =>
-
-
-
-        ab  <= std_logic_vector(py & px);
-
-
-
-        dbi <= std_logic_vector(val_actual - 4) & '1';
-
-
-
-        we  <= "1";
-
-
-
-        st  <= avanzar_siguiente_celda;
-
-
-
-
-
-
-
-    -- =====================================================
-
-
-
-    -- AVANZAR SIGUIENTE CELDA
-
-
-
-    -- =====================================================
-
-
-
-
+    when colapsar_celda_central => ab <= px_offset & std_logic_vector(py & px); dbi <= std_logic_vector(val_actual - 4) & '0'; we <= "1"; st <= avanzar_siguiente_celda;
 
 
 
     when avanzar_siguiente_celda =>
 
-
-
         if px = 63 then
 
-
-
-            px <= (others=>'0');
-
-
+            px <= (others => '0');
 
             if py = 63 then
 
+                py <= (others => '0');
 
+                if hubo_colapso = '1' then hubo_colapso <= '0'; st <= escanear_calcular_dir; else st <= temporizador_caida; end if;
 
-                py <= (others=>'0');
+            else py <= py + 1; st <= escanear_calcular_dir; end if;
 
-
-
-                if hubo_colapso = '1' then
-
-
-
-                    hubo_colapso <= '0';
-
-
-
-                    st           <= escanear_calcular_dir;
-
-
-
-                else
-
-
-
-                    st <= temporizador_caida;
-
-
-
-                end if;
-
-
-
-            else
-
-
-
-                py <= py + 1;
-
-
-
-                st <= escanear_calcular_dir;
-
-
-
-            end if;
-
-
-
-        else
-
-
-
-            px <= px + 1;
-
-
-
-            st <= escanear_calcular_dir;
-
-
-
-        end if;
-
-
-
-
-
-
-
-    -- =====================================================
-
-
-
-    -- TEMPORIZADOR
-
-
-
-    -- =====================================================
-
-
-
-
+        else px <= px + 1; st <= escanear_calcular_dir; end if;
 
 
 
     when temporizador_caida =>
 
+        if (CtrlV = '0' and timer = TIMER_V1) or (CtrlV = '1' and timer = TIMER_V2) then timer <= 0; st <= reposo; else timer <= timer + 1; end if;
 
-
-        if timer = 500000 then
-
-
-
-            timer <= 0;
-
-
-
-            st    <= reposo;
-
-
-
-        else
-
-
-
-            timer <= timer + 1;
-
-
-
-            st    <= temporizador_caida;
-
-
-
-        end if;
-
-
-
-
-
-
-
-    when others =>
-
-
-
-        st <= inicializacion;
-
-
-
-
-
-
+    when others => st <= inicializacion;
 
     end case;
 
-
-
 end if;
 
-
-
 end process;
-
-
-
-
-
-
 
 end Behavioral;
 
