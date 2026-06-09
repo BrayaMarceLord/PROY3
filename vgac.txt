@@ -1,5 +1,4 @@
 
-
 library IEEE;
 
 use IEEE.STD_LOGIC_1164.ALL;
@@ -12,19 +11,21 @@ entity vgac is
 
     Port ( 
 
-        clk    : in  STD_LOGIC; -- clk_25
+        clk        : in  STD_LOGIC; -- 100 MHz
 
-        reset  : in  STD_LOGIC;
+        reset      : in  STD_LOGIC;
 
-        hsync  : out STD_LOGIC;
+        clk_25_out : out STD_LOGIC; -- Exporta 25 MHz para el resto del sistema
 
-        vsync  : out STD_LOGIC;
+        hsync      : out STD_LOGIC;
 
-        dir    : out STD_LOGIC_VECTOR (11 downto 0);
+        vsync      : out STD_LOGIC;
 
-        hcount : out STD_LOGIC_VECTOR (10 downto 0);
+        dir        : out STD_LOGIC_VECTOR (11 downto 0); -- (No se usa, pero se mantiene por compatibilidad)
 
-        vcount : out STD_LOGIC_VECTOR (9 downto 0)
+        hcount     : out STD_LOGIC_VECTOR (10 downto 0);
+
+        vcount     : out STD_LOGIC_VECTOR (9 downto 0)
 
     );
 
@@ -36,9 +37,19 @@ architecture Behavioral of vgac is
 
 
 
+-- Contadores internos
+
 signal hc : unsigned(10 downto 0) := (others => '0');
 
 signal vc : unsigned(9 downto 0)  := (others => '0');
+
+
+
+-- Señales de reloj
+
+signal clk_50 : std_logic := '0';
+
+signal clk_25 : std_logic := '0';
 
 
 
@@ -46,7 +57,11 @@ begin
 
 
 
--- ================= CONTADOR HORIZONTAL =================
+-- =====================================================
+
+-- DIVISOR DE RELOJ INTERNO (100MHz -> 25MHz)
+
+-- =====================================================
 
 process(clk, reset)
 
@@ -54,9 +69,47 @@ begin
 
     if reset = '1' then
 
-        hc <= (others => '0');
+        clk_50 <= '0';
+
+        clk_25 <= '0';
 
     elsif rising_edge(clk) then
+
+        clk_50 <= not clk_50;
+
+        if clk_50 = '1' then
+
+            clk_25 <= not clk_25;
+
+        end if;
+
+    end if;
+
+end process;
+
+
+
+clk_25_out <= clk_25;
+
+
+
+-- =====================================================
+
+-- CONTADORES VGA (Estándar 640x480 @ 60Hz)
+
+-- =====================================================
+
+-- Horizontal: Visible (640) + Front(16) + Sync(96) + Back(48) = 800
+
+process(clk_25, reset)
+
+begin
+
+    if reset = '1' then
+
+        hc <= (others => '0');
+
+    elsif rising_edge(clk_25) then
 
         if hc = 799 then
 
@@ -74,9 +127,9 @@ end process;
 
 
 
--- ================= CONTADOR VERTICAL =================
+-- Vertical: Visible (480) + Front(10) + Sync(2) + Back(33) = 525
 
-process(clk, reset)
+process(clk_25, reset)
 
 begin
 
@@ -84,7 +137,7 @@ begin
 
         vc <= (others => '0');
 
-    elsif rising_edge(clk) then
+    elsif rising_edge(clk_25) then
 
         if hc = 799 then
 
@@ -106,39 +159,59 @@ end process;
 
 
 
--- ================= SINCRONIZACIÓN VGA =================
+-- =====================================================
+
+-- GENERACIÓN DE SYNC (Polaridad Negativa Estándar)
+
+-- =====================================================
+
+process(clk_25)
+
+begin
+
+    if rising_edge(clk_25) then
+
+        -- HSync: Pulso entre 656 y 751 (duración de 96 píxeles)
+
+        if (hc >= 656) and (hc <= 751) then
+
+            hsync <= '0'; -- Pulso activo bajo
+
+        else
+
+            hsync <= '1';
+
+        end if;
 
 
 
--- Pulso horizontal (96 clocks)
+        -- VSync: Pulso entre 490 y 491 (duración de 2 líneas)
 
-hsync <= '0' when (hc >= 656 and hc < 752) else '1';
+        if (vc >= 490) and (vc <= 491) then
+
+            vsync <= '0'; -- Pulso activo bajo
+
+        else
+
+            vsync <= '1';
+
+        end if;
+
+    end if;
+
+end process;
 
 
 
--- Pulso vertical (2 líneas)
+-- Enviamos las coordenadas actuales a la GU
 
-vsync <= '0' when (vc >= 490 and vc < 492) else '1';
-
-
-
--- ================= SALIDAS =================
-
-
+-- HC y VC valen 0 en la esquina superior izquierda visible.
 
 hcount <= std_logic_vector(hc);
 
 vcount <= std_logic_vector(vc);
 
-
-
--- ================= DIRECCIONAMIENTO =================
-
--- Mapeo a matriz 64x64 (cada pixel grande)
-
-
-
-dir <= std_logic_vector(vc(7 downto 2) & hc(7 downto 2));
+dir    <= (others => '0');
 
 
 

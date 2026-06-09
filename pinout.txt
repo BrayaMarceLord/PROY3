@@ -31,15 +31,12 @@ net "ini"   LOC="M17" | IOSTANDARD="LVCMOS33";
 # bt(0) = cinit  → inicialización aleatoria o en cero
 
 # bt(1) = op     → grano aleatorio o en el centro
-# bt(2) = gran  - granos aleatorios(cantidad)
 
  # =====================================================
 
 net "bt<0>" LOC="J15" | IOSTANDARD="LVCMOS33";
 
 net "bt<1>" LOC="R15" | IOSTANDARD="LVCMOS33";
-
-net "bt<2>" LOC="M13" | IOSTANDARD="LVCMOS33";
 
 
 

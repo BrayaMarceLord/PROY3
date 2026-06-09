@@ -2,6 +2,8 @@ library IEEE;
 
 use IEEE.STD_LOGIC_1164.ALL;
 
+use IEEE.NUMERIC_STD.ALL;
+
 
 
 entity PRNG is
@@ -11,8 +13,6 @@ entity PRNG is
         clk   : in  STD_LOGIC;
 
         reset : in  STD_LOGIC;
-
-        en    : in  STD_LOGIC;
 
         rx    : out STD_LOGIC_VECTOR(5 downto 0);
 
@@ -28,53 +28,43 @@ end PRNG;
 
 architecture Behavioral of PRNG is
 
+    -- LFSR de 14 bits para cubrir X(6), Y(6) y Val(2)
 
-
--- ¡CORRECCIÓN CRÍTICA! Se fuerza la semilla para que no inicie en ceros
-
-signal lfsr : STD_LOGIC_VECTOR(13 downto 0) := "11001010110101";
-
-signal feedback : STD_LOGIC;
-
-
+    signal lfsr : std_logic_vector(13 downto 0) := "10101100110101";
 
 begin
 
+    process(clk, reset)
 
+        variable feedback : std_logic;
 
-feedback <= lfsr(13) xor lfsr(12) xor lfsr(11) xor lfsr(1);
+    begin
 
+        if reset = '1' then
 
+            lfsr <= "10101100110101"; -- Semilla inicial
 
-process(clk, reset)
+        elsif rising_edge(clk) then
 
-begin
+            -- Polinomio para 14 bits: x^14 + x^13 + x^12 + x^2 + 1
 
-    if reset = '1' then
-
-        lfsr <= "11001010110101"; -- Reinicia con una semilla válida
-
-    elsif rising_edge(clk) then
-
-        if en = '1' then
+            feedback := lfsr(13) xnor lfsr(12) xnor lfsr(11) xnor lfsr(1);
 
             lfsr <= lfsr(12 downto 0) & feedback;
 
         end if;
 
-    end if;
-
-end process;
+    end process;
 
 
 
-rx   <= lfsr(5 downto 0);
+    -- Asignación de bits (Carrera libre)
 
-ry   <= lfsr(11 downto 6);
+    rx   <= lfsr(5 downto 0);
 
-rval <= lfsr(1 downto 0);
+    ry   <= lfsr(11 downto 6);
 
-
+    rval <= lfsr(13 downto 12);
 
 end Behavioral;
 

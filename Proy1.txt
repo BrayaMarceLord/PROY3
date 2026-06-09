@@ -16,9 +16,7 @@ entity proy1 is
 
         reset : in  STD_LOGIC;
 
-        -- ¡CORRECCIÓN! Reducido a 3 bits para coincidir con tu placa
-
-        bt    : in  STD_LOGIC_VECTOR(2 downto 0);
+        bt    : in  STD_LOGIC_VECTOR(1 downto 0);
 
         hsync : out STD_LOGIC;
 
@@ -36,23 +34,15 @@ architecture Behavioral of proy1 is
 
 
 
-signal hcounti   : std_logic_vector(10 downto 0);
+signal hcounti : std_logic_vector(10 downto 0);
 
-signal vcounti   : std_logic_vector(9 downto 0);
+signal vcounti : std_logic_vector(9 downto 0);
 
-signal dir_val_i : std_logic_vector(11 downto 0);
+signal dir_b_i : std_logic_vector(11 downto 0);
 
-signal dir_av_i  : std_logic_vector(11 downto 0);
+signal data_i  : std_logic_vector(3 downto 0);
 
-signal data_val_i: std_logic_vector(2 downto 0);
-
-signal data_av_i : std_logic_vector(0 downto 0);
-
-
-
-signal clk_50    : std_logic := '0';
-
-signal clk_25    : std_logic := '0';
+signal clk_25  : std_logic; -- Señal que viaja desde el VGA al resto
 
 
 
@@ -60,81 +50,51 @@ begin
 
 
 
--- DIVISOR DE RELOJ
-
-process(clk, reset)
-
-begin
-
-    if reset = '1' then
-
-        clk_50 <= '0';
-
-        clk_25 <= '0';
-
-    elsif rising_edge(clk) then
-
-        clk_50 <= not clk_50;
-
-        if clk_50 = '1' then
-
-            clk_25 <= not clk_25;
-
-        end if;
-
-    end if;
-
-end process;
-
-
-
--- MAE (Máquina y Memorias)
+-- MAE (Máquina y Memoria)
 
 c0: entity work.MAE
 
 port map (
 
-    clk      => clk,
+    clk    => clk,
 
-    clk_25   => clk_25,
+    clk_25 => clk_25,  -- Recibe el reloj desde el controlador VGA
 
-    ini      => ini,
+    ini    => ini,
 
-    reset    => reset,
+    reset  => reset,
 
-    dir_val  => dir_val_i,
+    dir_b  => dir_b_i,
 
-    data_val => data_val_i,
+    data   => data_i,
 
-    dir_av   => dir_av_i,
-
-    data_av  => data_av_i,
-
-    bt       => bt -- Aquí se transfiere el switch a los módulos internos
+    bt     => bt
 
 );
 
 
 
--- CONTROLADOR VGA
+-- CONTROLADOR VGA (Ahora contiene el divisor de reloj)
 
 c1: entity work.vgac
 
 port map (
 
-    clk    => clk_25,
+    clk        => clk,         -- Entran 100MHz
 
-    reset  => reset,
+    reset      => reset,
 
-    hsync  => hsync,
+    clk_25_out => clk_25,      -- Salen 25MHz
 
-    vsync  => vsync,
+    hsync      => hsync,
 
-    dir    => open,
+    vsync      => vsync,
 
-    hcount => hcounti,
+    dir        => open,
 
-    vcount => vcounti
+    hcount     => hcounti,
+
+    vcount     => vcounti
 
 );
 
@@ -146,25 +106,20 @@ c2: entity work.GU
 
 port map (
 
-    clk      => clk_25,
+    clk    => clk_25,          -- Recibe el reloj de 25MHz
 
-    data_val => data_val_i,
+    data   => data_i,
 
-    data_av  => data_av_i,
+    hcount => hcounti,
 
-    hcount   => hcounti,
+    vcount => vcounti,
 
-    vcount   => vcounti,
+    rgb    => rgb,
 
-    rgb      => rgb,
-
-    dir_val  => dir_val_i,
-
-    dir_av   => dir_av_i
+    dir_b  => dir_b_i
 
 );
 
 
 
 end Behavioral;
-
